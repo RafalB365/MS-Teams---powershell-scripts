@@ -1,3 +1,5 @@
+# Since there is no way to see the owners of other Teams, this script list them all and save to CSV
+
 Import-Module Microsoft.Graph.Users
 # Connect to Microsoft Graph
 Connect-MgGraph -Scopes Group.Read.All, User.Read.All
