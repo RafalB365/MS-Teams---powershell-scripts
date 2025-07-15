@@ -96,65 +96,90 @@ $scriptInfo = @{
         RequiredScopes = @("Sites.FullControl.All")
         Category = "SharePoint"
     }
-    "2" = @{
-        Name = "SharePoint Site Usage Report"
-        Description = "Generates a report of site usage across your SharePoint tenant"
-        Url = "https://raw.githubusercontent.com/RafalB365/MS-Teams---powershell-scripts/refs/heads/main/createDL.ps1"  # Replace with actual script
-        ScriptName = "SPSiteUsage.ps1"
-        RequiredModules = @("PnP.PowerShell", "Microsoft.Graph.Sites")
-        RequiredScopes = @("Sites.Read.All")
-        Category = "SharePoint"
-    }
     
     # MS Teams scripts
+    "2" = @{
+        Name = "Allow Teams Creation"
+        Description = "Allow members to create Teams in MS Teams if the MS 365 group creation is blocked on the org wide settings"
+        Url = "local"
+        ScriptName = "allowteamscreation.ps1"
+        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\MS Teams\allowteamscreation.ps1"
+        RequiredModules = @("Microsoft.Graph.Beta.Identity.DirectoryManagement", "Microsoft.Graph.Beta.Groups")
+        RequiredScopes = @("Group.ReadWrite.All", "Directory.ReadWrite.All")
+        Category = "MS Teams"
+    }
     "3" = @{
-        Name = "Save all Teams owners to CSV"
-        Description = "Since there is no way to see the owners of other Teams, this script list them all and save to CSV"
-        Url = "https://raw.githubusercontent.com/RafalB365/MS-Teams---powershell-scripts/refs/heads/main/listallteamowners.ps1"
-        ScriptName = "listallteamowners.ps1"
-        RequiredModules = @("Microsoft.Graph.Users", "MicrosoftTeams")
-        RequiredScopes = @("GroupMember.Read.All", "Group.Read.All", "User.Read.All")
+        Name = "Import Users from CSV to Private Teams Channel"
+        Description = "Imports users from CSV file to a private Teams channel with template generation"
+        Url = "local"
+        ScriptName = "importusersfromcsvtoprivateteamschannel.ps1"
+        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\MS Teams\importusersfromcsvtoprivateteamschannel.ps1"
+        RequiredModules = @("MicrosoftTeams")
+        RequiredScopes = @("TeamMember.ReadWrite.All", "Group.ReadWrite.All")
         Category = "MS Teams"
     }
     "4" = @{
-        Name = "Teams Usage Analytics" 
-        Description = "Generates detailed analytics about Teams usage across your organization"
-        Url = "https://raw.githubusercontent.com/RafalB365/MS-Teams---powershell-scripts/refs/heads/main/createDL.ps1"  # Replace with actual script
-        ScriptName = "TeamsUsageAnalytics.ps1"
-        RequiredModules = @("MicrosoftTeams", "Microsoft.Graph.Reports")
-        RequiredScopes = @("Reports.Read.All")
+        Name = "Save all Teams owners to CSV"
+        Description = "Since there is no way to see the owners of other Teams, this script lists them all and saves to CSV"
+        Url = "local"
+        ScriptName = "listallteamowners.ps1"
+        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\MS Teams\listallteamowners.ps1"
+        RequiredModules = @("Microsoft.Graph.Users")
+        RequiredScopes = @("GroupMember.Read.All", "Group.Read.All", "User.Read.All")
+        Category = "MS Teams"
+    }
+    "5" = @{
+        Name = "MS Teams Shared Channel Creation"
+        Description = "Creates MS Teams shared channels based on CSV file containing ChannelName and Email columns"
+        Url = "local"
+        ScriptName = "MSTeams_shared channel creation.ps1"
+        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\MS Teams\MSTeams_shared channel creation.ps1"
+        RequiredModules = @("MicrosoftTeams", "Microsoft.Graph.Users")
+        RequiredScopes = @("TeamMember.ReadWrite.All", "Group.ReadWrite.All", "User.Read.All")
+        Category = "MS Teams"
+    }
+    "6" = @{
+        Name = "Remove User from Team Channels"
+        Description = "Removes a user from all channels in a single, specified Team"
+        Url = "local"
+        ScriptName = "removeuserfromateamchannels.ps1"
+        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\MS Teams\removeuserfromateamchannels.ps1"
+        RequiredModules = @("MicrosoftTeams")
+        RequiredScopes = @("TeamMember.ReadWrite.All", "Group.ReadWrite.All")
         Category = "MS Teams"
     }
     
     # Exchange scripts
-    "5" = @{
+    "7" = @{
         Name = "Create DL based on MS 365 group"
-        Description = "This script is creating an exchange Distribution List based on the MS 365 group members"
-        Url = "https://raw.githubusercontent.com/RafalB365/MS-Teams---powershell-scripts/refs/heads/main/createDL.ps1"
+        Description = "This script creates an Exchange Distribution List based on the MS 365 group members"
+        Url = "local"
         ScriptName = "createDL.ps1"
-        RequiredModules = @("Microsoft.Graph.Groups", "ExchangeOnlineManagement")
-        RequiredScopes = @("GroupMember.ReadWrite.All", "Group.Read.All")
+        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\Exchange\createDL.ps1"
+        RequiredModules = @("ExchangeOnlineManagement")
+        RequiredScopes = @()  # Exchange Online uses its own authentication
         Category = "Exchange"
     }
     
     # Entra (Azure AD) scripts
-    "6" = @{
+    "8" = @{
         Name = "Bulk Group Creation from CSV"
         Description = "Bulk creates Microsoft 365 and Security groups from a CSV file with interactive CSV generation"
-        Url = "local"  # Use local file instead of GitHub
+        Url = "local"
         ScriptName = "bulkgroupcreationfromCSV.ps1"
         LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\Entra\bulkgroupcreationfromCSV.ps1"
         RequiredModules = @("Microsoft.Graph.Groups")
         RequiredScopes = @("Group.ReadWrite.All", "Directory.ReadWrite.All")
         Category = "Entra"
     }
-    "7" = @{
-        Name = "User License Report"
-        Description = "Generates a detailed report of license assignments across your tenant"
-        Url = "https://raw.githubusercontent.com/RafalB365/MS-Teams---powershell-scripts/refs/heads/main/createDL.ps1"  # Replace with actual script
-        ScriptName = "UserLicenseReport.ps1"
-        RequiredModules = @("Microsoft.Graph.Users", "Microsoft.Graph.Identity.DirectoryManagement")
-        RequiredScopes = @("User.Read.All", "Directory.Read.All")
+    "9" = @{
+        Name = "Remove Members from MS365 Group"
+        Description = "Removes all members from MS 365 group leaving owners with batch processing and retry logic"
+        Url = "local"
+        ScriptName = "RemoveMembersFromMS365Group.ps1"
+        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\Entra\RemoveMembersFromMS365Group.ps1"
+        RequiredModules = @("Microsoft.Graph.Groups")
+        RequiredScopes = @("GroupMember.ReadWrite.All", "Group.Read.All")
         Category = "Entra"
     }
 }
@@ -409,18 +434,21 @@ function Check-AllDependencies {
     # Get all unique modules from scripts
     $allModules = $scriptInfo.Values | ForEach-Object { $_.RequiredModules } | Select-Object -Unique | Sort-Object
     
+    Write-Host "`n--- Checking PowerShell Modules ---" -ForegroundColor Cyan
+    
     foreach ($module in $allModules) {
         Write-Host "Checking $module..." -NoNewline
         
         try {
             $installedModule = Get-Module -Name $module -ListAvailable -ErrorAction SilentlyContinue
             if ($installedModule) {
-                Write-Host " ✓ Installed (v$($installedModule.Version))" -ForegroundColor Green
+                Write-Host " ✓ Installed (v$($installedModule[0].Version))" -ForegroundColor Green
             } else {
                 Write-Host " ✗ Not installed" -ForegroundColor Red
                 $installChoice = Read-Host "Install $module? (y/n)"
                 if ($installChoice -eq 'y' -or $installChoice -eq 'Y') {
-                    Install-Module -Name $module -Scope CurrentUser -Force
+                    Write-Host "Installing $module..." -ForegroundColor Yellow
+                    Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber
                     Write-Host "$module installed successfully." -ForegroundColor Green
                 }
             }
@@ -430,7 +458,176 @@ function Check-AllDependencies {
         }
     }
     
-    Write-Host "`nDependency check completed." -ForegroundColor Green
+    Write-Host "`n--- Checking Service Connections ---" -ForegroundColor Cyan
+    
+    # Check Microsoft Graph connection
+    Write-Host "Checking Microsoft Graph connection..." -NoNewline
+    try {
+        $mgContext = Get-MgContext -ErrorAction SilentlyContinue
+        if ($mgContext) {
+            Write-Host " ✓ Connected as $($mgContext.Account)" -ForegroundColor Green
+            Write-Host "  Current scopes: $($mgContext.Scopes -join ', ')" -ForegroundColor Gray
+            
+            # Check if all required scopes are present
+            $allRequiredScopes = $scriptInfo.Values | ForEach-Object { $_.RequiredScopes } | Select-Object -Unique | Sort-Object
+            $missingScopes = $allRequiredScopes | Where-Object { $_ -notin $mgContext.Scopes }
+            
+            if ($missingScopes.Count -gt 0) {
+                Write-Host "  ⚠ Missing scopes: $($missingScopes -join ', ')" -ForegroundColor Yellow
+                $reconnectChoice = Read-Host "Reconnect with all required scopes? (y/n)"
+                if ($reconnectChoice -eq 'y' -or $reconnectChoice -eq 'Y') {
+                    Write-Host "Connecting to Microsoft Graph with all required scopes..." -ForegroundColor Yellow
+                    try {
+                        Connect-MgGraph -Scopes $allRequiredScopes -ErrorAction Stop
+                        Write-Host "✓ Connected to Microsoft Graph with all required scopes." -ForegroundColor Green
+                    }
+                    catch {
+                        Write-Host "✗ Failed to connect to Microsoft Graph: $_" -ForegroundColor Red
+                        Write-Host "  Try connecting manually with: Connect-MgGraph -Scopes '$($allRequiredScopes -join "','")'" -ForegroundColor Yellow
+                    }
+                }
+            }
+        } else {
+            Write-Host " ✗ Not connected" -ForegroundColor Red
+            $connectChoice = Read-Host "Connect to Microsoft Graph? (y/n)"
+            if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
+                $allRequiredScopes = $scriptInfo.Values | ForEach-Object { $_.RequiredScopes } | Select-Object -Unique | Sort-Object
+                Write-Host "Connecting to Microsoft Graph with scopes: $($allRequiredScopes -join ', ')" -ForegroundColor Yellow
+                try {
+                    Connect-MgGraph -Scopes $allRequiredScopes -ErrorAction Stop
+                    Write-Host "✓ Connected to Microsoft Graph successfully." -ForegroundColor Green
+                }
+                catch {
+                    Write-Host "✗ Failed to connect to Microsoft Graph: $_" -ForegroundColor Red
+                    Write-Host "  Try connecting manually with: Connect-MgGraph -Scopes '$($allRequiredScopes -join "','")'" -ForegroundColor Yellow
+                }
+            }
+        }
+    }
+    catch {
+        Write-Host " ✗ Error checking Microsoft Graph connection: $_" -ForegroundColor Red
+    }
+    
+    # Check Microsoft Teams connection
+    Write-Host "Checking Microsoft Teams connection..." -NoNewline
+    try {
+        $teamsContext = Get-CsTenant -ErrorAction SilentlyContinue
+        if ($teamsContext) {
+            Write-Host " ✓ Connected to tenant: $($teamsContext.DisplayName)" -ForegroundColor Green
+        } else {
+            Write-Host " ✗ Not connected" -ForegroundColor Red
+            $connectChoice = Read-Host "Connect to Microsoft Teams? (y/n)"
+            if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
+                Write-Host "Connecting to Microsoft Teams..." -ForegroundColor Yellow
+                Connect-MicrosoftTeams -ErrorAction Stop
+                Write-Host "✓ Connected to Microsoft Teams successfully." -ForegroundColor Green
+            }
+        }
+    }
+    catch {
+        Write-Host " ✗ Error checking Microsoft Teams connection: $_" -ForegroundColor Red
+        $connectChoice = Read-Host "Connect to Microsoft Teams? (y/n)"
+        if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
+            try {
+                Write-Host "Connecting to Microsoft Teams..." -ForegroundColor Yellow
+                Connect-MicrosoftTeams -ErrorAction Stop
+                Write-Host "✓ Connected to Microsoft Teams successfully." -ForegroundColor Green
+            }
+            catch {
+                Write-Host "✗ Failed to connect to Microsoft Teams: $_" -ForegroundColor Red
+            }
+        }
+    }
+    
+    # Check Exchange Online connection
+    Write-Host "Checking Exchange Online connection..." -NoNewline
+    try {
+        # First check if the ExchangeOnlineManagement module is imported
+        $exchangeModule = Get-Module -Name ExchangeOnlineManagement -ErrorAction SilentlyContinue
+        if (-not $exchangeModule) {
+            try {
+                Import-Module ExchangeOnlineManagement -ErrorAction Stop
+            }
+            catch {
+                Write-Host " ✗ ExchangeOnlineManagement module not available" -ForegroundColor Red
+                Write-Host "  Install with: Install-Module ExchangeOnlineManagement -Scope CurrentUser" -ForegroundColor Yellow
+                return
+            }
+        }
+        
+        # Check if we're connected by trying to get connection info
+        $connectionInfo = Get-ConnectionInformation -ErrorAction SilentlyContinue
+        if ($connectionInfo) {
+            Write-Host " ✓ Connected to Exchange Online ($($connectionInfo.Organization))" -ForegroundColor Green
+        } else {
+            Write-Host " ✗ Not connected" -ForegroundColor Red
+            $connectChoice = Read-Host "Connect to Exchange Online? (y/n)"
+            if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
+                Write-Host "Connecting to Exchange Online..." -ForegroundColor Yellow
+                try {
+                    Connect-ExchangeOnline -ErrorAction Stop
+                    Write-Host "✓ Connected to Exchange Online successfully." -ForegroundColor Green
+                }
+                catch {
+                    Write-Host "✗ Failed to connect to Exchange Online: $_" -ForegroundColor Red
+                    Write-Host "  Try connecting manually with: Connect-ExchangeOnline" -ForegroundColor Yellow
+                }
+            }
+        }
+    }
+    catch {
+        Write-Host " ✗ Error checking Exchange Online connection: $_" -ForegroundColor Red
+        $connectChoice = Read-Host "Connect to Exchange Online? (y/n)"
+        if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
+            try {
+                Write-Host "Connecting to Exchange Online..." -ForegroundColor Yellow
+                Connect-ExchangeOnline -ErrorAction Stop
+                Write-Host "✓ Connected to Exchange Online successfully." -ForegroundColor Green
+            }
+            catch {
+                Write-Host "✗ Failed to connect to Exchange Online: $_" -ForegroundColor Red
+                Write-Host "  Try connecting manually with: Connect-ExchangeOnline" -ForegroundColor Yellow
+            }
+        }
+    }
+    
+    Write-Host "`n--- Connection Summary ---" -ForegroundColor Cyan
+    
+    # Final status check
+    try {
+        $mgContext = Get-MgContext -ErrorAction SilentlyContinue
+        if ($mgContext) {
+            Write-Host "✓ Microsoft Graph: Connected as $($mgContext.Account)" -ForegroundColor Green
+        } else {
+            Write-Host "✗ Microsoft Graph: Not connected" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "✗ Microsoft Graph: Connection error" -ForegroundColor Red
+    }
+    
+    try {
+        $teamsContext = Get-CsTenant -ErrorAction SilentlyContinue
+        if ($teamsContext) {
+            Write-Host "✓ Microsoft Teams: Connected to $($teamsContext.DisplayName)" -ForegroundColor Green
+        } else {
+            Write-Host "✗ Microsoft Teams: Not connected" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "✗ Microsoft Teams: Connection error" -ForegroundColor Red
+    }
+    
+    try {
+        $connectionInfo = Get-ConnectionInformation -ErrorAction SilentlyContinue
+        if ($connectionInfo) {
+            Write-Host "✓ Exchange Online: Connected to $($connectionInfo.Organization)" -ForegroundColor Green
+        } else {
+            Write-Host "✗ Exchange Online: Not connected" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "✗ Exchange Online: Connection error" -ForegroundColor Red
+    }
+    
+    Write-Host "`nDependency and connection check completed." -ForegroundColor Green
     Write-Host "`nPress any key to return to menu..." -ForegroundColor Gray
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 }
@@ -501,22 +698,38 @@ do {
         "2" {
             Show-ScriptDescription "2"
             $script = $scriptInfo["2"]
-            Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            if ($script.ContainsKey("LocalPath")) {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache -LocalPath $script.LocalPath
+            } else {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            }
         }
         "3" {
             Show-ScriptDescription "3"
             $script = $scriptInfo["3"]
-            Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            if ($script.ContainsKey("LocalPath")) {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache -LocalPath $script.LocalPath
+            } else {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            }
         }
         "4" {
             Show-ScriptDescription "4"
             $script = $scriptInfo["4"]
-            Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            if ($script.ContainsKey("LocalPath")) {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache -LocalPath $script.LocalPath
+            } else {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            }
         }
         "5" {
             Show-ScriptDescription "5"
             $script = $scriptInfo["5"]
-            Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            if ($script.ContainsKey("LocalPath")) {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache -LocalPath $script.LocalPath
+            } else {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            }
         }
         "6" {
             Show-ScriptDescription "6"
@@ -530,7 +743,29 @@ do {
         "7" {
             Show-ScriptDescription "7"
             $script = $scriptInfo["7"]
-            Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            if ($script.ContainsKey("LocalPath")) {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache -LocalPath $script.LocalPath
+            } else {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            }
+        }
+        "8" {
+            Show-ScriptDescription "8"
+            $script = $scriptInfo["8"]
+            if ($script.ContainsKey("LocalPath")) {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache -LocalPath $script.LocalPath
+            } else {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            }
+        }
+        "9" {
+            Show-ScriptDescription "9"
+            $script = $scriptInfo["9"]
+            if ($script.ContainsKey("LocalPath")) {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache -LocalPath $script.LocalPath
+            } else {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            }
         }
         
         # Configuration options
