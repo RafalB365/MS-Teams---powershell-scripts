@@ -91,7 +91,7 @@ $scriptInfo = @{
         Description = "Adds users to SharePoint site groups (Owners or Members) for multiple sites based on CSV file"
         Url = "local"
         ScriptName = "add_sharepoint_users_from_csv.ps1"
-        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\SharePoint\add_sharepoint_users_from_csv.ps1"
+        LocalPath = "Scripts\SharePoint\add_sharepoint_users_from_csv.ps1"
         RequiredModules = @("PnP.PowerShell")
         RequiredScopes = @("Sites.FullControl.All")
         Category = "SharePoint"
@@ -103,7 +103,7 @@ $scriptInfo = @{
         Description = "Allow members to create Teams in MS Teams if the MS 365 group creation is blocked on the org wide settings"
         Url = "local"
         ScriptName = "allowteamscreation.ps1"
-        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\MS Teams\allowteamscreation.ps1"
+        LocalPath = "Scripts\MS Teams\allowteamscreation.ps1"
         RequiredModules = @("Microsoft.Graph.Beta.Identity.DirectoryManagement", "Microsoft.Graph.Beta.Groups")
         RequiredScopes = @("Group.ReadWrite.All", "Directory.ReadWrite.All")
         Category = "MS Teams"
@@ -113,7 +113,7 @@ $scriptInfo = @{
         Description = "Imports users from CSV file to a private Teams channel with template generation"
         Url = "local"
         ScriptName = "importusersfromcsvtoprivateteamschannel.ps1"
-        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\MS Teams\importusersfromcsvtoprivateteamschannel.ps1"
+        LocalPath = "Scripts\MS Teams\importusersfromcsvtoprivateteamschannel.ps1"
         RequiredModules = @("MicrosoftTeams")
         RequiredScopes = @("TeamMember.ReadWrite.All", "Group.ReadWrite.All")
         Category = "MS Teams"
@@ -123,7 +123,7 @@ $scriptInfo = @{
         Description = "Since there is no way to see the owners of other Teams, this script lists them all and saves to CSV"
         Url = "local"
         ScriptName = "listallteamowners.ps1"
-        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\MS Teams\listallteamowners.ps1"
+        LocalPath = "Scripts\MS Teams\listallteamowners.ps1"
         RequiredModules = @("Microsoft.Graph.Users")
         RequiredScopes = @("GroupMember.Read.All", "Group.Read.All", "User.Read.All")
         Category = "MS Teams"
@@ -133,7 +133,7 @@ $scriptInfo = @{
         Description = "Creates MS Teams shared channels based on CSV file containing ChannelName and Email columns"
         Url = "local"
         ScriptName = "MSTeams_shared channel creation.ps1"
-        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\MS Teams\MSTeams_shared channel creation.ps1"
+        LocalPath = "Scripts\MS Teams\MSTeams_shared channel creation.ps1"
         RequiredModules = @("MicrosoftTeams", "Microsoft.Graph.Users")
         RequiredScopes = @("TeamMember.ReadWrite.All", "Group.ReadWrite.All", "User.Read.All")
         Category = "MS Teams"
@@ -143,7 +143,7 @@ $scriptInfo = @{
         Description = "Removes a user from all channels in a single, specified Team"
         Url = "local"
         ScriptName = "removeuserfromateamchannels.ps1"
-        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\MS Teams\removeuserfromateamchannels.ps1"
+        LocalPath = "Scripts\MS Teams\removeuserfromateamchannels.ps1"
         RequiredModules = @("MicrosoftTeams")
         RequiredScopes = @("TeamMember.ReadWrite.All", "Group.ReadWrite.All")
         Category = "MS Teams"
@@ -155,7 +155,7 @@ $scriptInfo = @{
         Description = "This script creates an Exchange Distribution List based on the MS 365 group members"
         Url = "local"
         ScriptName = "createDL.ps1"
-        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\Exchange\createDL.ps1"
+        LocalPath = "Scripts\Exchange\createDL.ps1"
         RequiredModules = @("ExchangeOnlineManagement")
         RequiredScopes = @()  # Exchange Online uses its own authentication
         Category = "Exchange"
@@ -167,7 +167,7 @@ $scriptInfo = @{
         Description = "Bulk creates Microsoft 365 and Security groups from a CSV file with interactive CSV generation"
         Url = "local"
         ScriptName = "bulkgroupcreationfromCSV.ps1"
-        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\Entra\bulkgroupcreationfromCSV.ps1"
+        LocalPath = "Scripts\Entra\bulkgroupcreationfromCSV.ps1"
         RequiredModules = @("Microsoft.Graph.Groups")
         RequiredScopes = @("Group.ReadWrite.All", "Directory.ReadWrite.All")
         Category = "Entra"
@@ -177,7 +177,7 @@ $scriptInfo = @{
         Description = "Removes all members from MS 365 group leaving owners with batch processing and retry logic"
         Url = "local"
         ScriptName = "RemoveMembersFromMS365Group.ps1"
-        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\Entra\RemoveMembersFromMS365Group.ps1"
+        LocalPath = "Scripts\Entra\RemoveMembersFromMS365Group.ps1"
         RequiredModules = @("Microsoft.Graph.Groups")
         RequiredScopes = @("GroupMember.ReadWrite.All", "Group.Read.All")
         Category = "Entra"
@@ -372,11 +372,15 @@ function Execute-ScriptFromGitHub {
             # Execute local script
             Write-Host "Executing local script $ScriptName..." -ForegroundColor Yellow
             
-            if (Test-Path -Path $LocalPath) {
-                $scriptContent = Get-Content -Path $LocalPath -Raw
-                Write-Host "Found local script at: $LocalPath" -ForegroundColor Gray
+            # Get the directory where the main script is located
+            $scriptDir = Split-Path -Path $MyInvocation.PSCommandPath -Parent
+            $fullLocalPath = Join-Path -Path $scriptDir -ChildPath $LocalPath
+            
+            if (Test-Path -Path $fullLocalPath) {
+                $scriptContent = Get-Content -Path $fullLocalPath -Raw
+                Write-Host "Found local script at: $fullLocalPath" -ForegroundColor Gray
             } else {
-                throw "Local script not found at: $LocalPath"
+                throw "Local script not found at: $fullLocalPath"
             }
         } else {
             # Download script from GitHub
