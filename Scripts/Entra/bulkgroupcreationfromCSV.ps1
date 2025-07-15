@@ -1,9 +1,73 @@
 # This script bulk-creates groups in Azure AD from a CSV, reporting on all success/failure outcomes, and carefully handles both Microsoft 365 and Security groups.
 # Input Required: Assumes the CSV contains at least displayName, mail, and groupType columns.
 
+# Get the MS 365 Admin Alembic work folder
+$appName = "MS 365 Admin Alembic"
+$appFolderPath = Join-Path -Path $env:USERPROFILE -ChildPath $appName
+$csvFilePath = Join-Path -Path $appFolderPath -ChildPath "groups_to_create.csv"
+
+# Create directory if it doesn't exist
+if (-not (Test-Path -Path $appFolderPath -PathType Container)) {
+    New-Item -Path $appFolderPath -ItemType Directory -Force | Out-Null
+}
+
+Write-Host "=== Azure AD Group Bulk Creation ===" -ForegroundColor Green
+Write-Host ""
+
+# Ask user if they want to generate a CSV template
+$generateCsv = Read-Host "Do you want to generate a CSV template file? (y/n)"
+
+if ($generateCsv -eq 'y' -or $generateCsv -eq 'Y') {
+    # Generate CSV template with sample data
+    $csvTemplate = @"
+displayName,mail,groupType
+Marketing Team,marketing@company.com,Microsoft 365
+Sales Security Group,,Security
+Finance Team,finance@company.com,Microsoft 365
+IT Security Group,,Security
+HR Team,hr@company.com,Microsoft 365
+"@
+    
+    # Save CSV template to work folder
+    $csvTemplate | Out-File -FilePath $csvFilePath -Encoding UTF8
+    
+    Write-Host "CSV template generated at: $csvFilePath" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Please edit the CSV file with your group information and then run this script again." -ForegroundColor Yellow
+    Write-Host "CSV contains the following columns:" -ForegroundColor Gray
+    Write-Host "- displayName: The display name of the group" -ForegroundColor Gray
+    Write-Host "- mail: Email address for Microsoft 365 groups (leave empty for Security groups)" -ForegroundColor Gray
+    Write-Host "- groupType: Either 'Microsoft 365' or 'Security'" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Opening the CSV file for editing..." -ForegroundColor Yellow
+    
+    # Open the CSV file for editing
+    Start-Process notepad.exe -ArgumentList $csvFilePath
+    
+    Write-Host "Press any key when you've finished editing the CSV file..." -ForegroundColor Yellow
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+}
+else {
+    Write-Host "Please place your CSV file in the work folder: $appFolderPath" -ForegroundColor Yellow
+    Write-Host "The CSV file should be named 'groups_to_create.csv'" -ForegroundColor Yellow
+    Write-Host "Required columns: displayName, mail, groupType" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "Press any key when you've placed the CSV file..." -ForegroundColor Yellow
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+}
+
+# Check if CSV file exists
+if (-not (Test-Path -Path $csvFilePath)) {
+    Write-Host "ERROR: CSV file not found at $csvFilePath" -ForegroundColor Red
+    Write-Host "Please ensure the CSV file exists and try again." -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Found CSV file. Processing groups..." -ForegroundColor Green
+Write-Host ""
 
 # Import the CSV file
-$groups = Import-Csv -Path "C:\XXX.csv"
+$groups = Import-Csv -Path $csvFilePath
 
 # Initialize arrays to track success and failures
 $successGroups = @()

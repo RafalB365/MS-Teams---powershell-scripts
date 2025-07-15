@@ -129,6 +129,16 @@ $scriptInfo = @{
     
     # Entra (Azure AD) scripts
     "5" = @{
+        Name = "Bulk Group Creation from CSV"
+        Description = "Bulk creates Microsoft 365 and Security groups from a CSV file with interactive CSV generation"
+        Url = "local"  # Use local file instead of GitHub
+        ScriptName = "bulkgroupcreationfromCSV.ps1"
+        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\Entra\bulkgroupcreationfromCSV.ps1"
+        RequiredModules = @("Microsoft.Graph.Groups")
+        RequiredScopes = @("Group.ReadWrite.All", "Directory.ReadWrite.All")
+        Category = "Entra"
+    }
+    "6" = @{
         Name = "User License Report"
         Description = "Generates a detailed report of license assignments across your tenant"
         Url = "https://raw.githubusercontent.com/RafalB365/MS-Teams---powershell-scripts/refs/heads/main/createDL.ps1"  # Replace with actual script
@@ -307,21 +317,33 @@ function Show-ScriptDescription {
     }
 }
 
-# Function to execute script from GitHub
+# Function to execute script from GitHub or local file
 function Execute-ScriptFromGitHub {
     param (
         [string]$ScriptUrl,
         [string]$ScriptName,
         [array]$RequiredModules,
         [array]$RequiredScopes,
-        [bool]$UseCache = $true
+        [bool]$UseCache = $true,
+        [string]$LocalPath = ""
     )
     
     try {
-        Write-Host "Downloading and executing $ScriptName..." -ForegroundColor Yellow
-        
-        # Download script content
-        $scriptContent = Invoke-RestMethod -Uri $ScriptUrl -ErrorAction Stop
+        if ($ScriptUrl -eq "local" -and -not [string]::IsNullOrEmpty($LocalPath)) {
+            # Execute local script
+            Write-Host "Executing local script $ScriptName..." -ForegroundColor Yellow
+            
+            if (Test-Path -Path $LocalPath) {
+                $scriptContent = Get-Content -Path $LocalPath -Raw
+                Write-Host "Found local script at: $LocalPath" -ForegroundColor Gray
+            } else {
+                throw "Local script not found at: $LocalPath"
+            }
+        } else {
+            # Download script from GitHub
+            Write-Host "Downloading and executing $ScriptName..." -ForegroundColor Yellow
+            $scriptContent = Invoke-RestMethod -Uri $ScriptUrl -ErrorAction Stop
+        }
         
         # Save to cache if enabled
         if ($UseCache) {
@@ -427,6 +449,21 @@ function Configure-PnPConnection {
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 }
 
+# Function to open configuration folder
+function Open-ConfigFolder {
+    Write-Host "`n=== Opening Configuration Folder ===" -ForegroundColor Green
+    try {
+        Start-Process explorer.exe -ArgumentList $appFolderPath
+        Write-Host "Configuration folder opened: $appFolderPath" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Error opening configuration folder: $_" -ForegroundColor Red
+    }
+    
+    Write-Host "`nPress any key to return to menu..." -ForegroundColor Gray
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+}
+
 # === MAIN EXECUTION ===
 Load-Settings
 Create-DesktopShortcut
@@ -461,6 +498,15 @@ do {
         "5" {
             Show-ScriptDescription "5"
             $script = $scriptInfo["5"]
+            if ($script.ContainsKey("LocalPath")) {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache -LocalPath $script.LocalPath
+            } else {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            }
+        }
+        "6" {
+            Show-ScriptDescription "6"
+            $script = $scriptInfo["6"]
             Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
         }
         
