@@ -6,9 +6,15 @@
 Import-Module PnP.PowerShell -ErrorAction SilentlyContinue
 
 # Define the working directory and file paths
-$workingDir = Get-Location
-$csvFilePath = Join-Path -Path $workingDir -ChildPath "SharePoint_Users_Import.csv"
-$errorLogFilePath = Join-Path -Path $workingDir -ChildPath "SharePoint_Users_Import_Errors.txt"
+# Use the application work folder from the main menu configuration
+$appFolderPath = Join-Path -Path $env:USERPROFILE -ChildPath "MS 365 Admin Alembic"
+$csvFilePath = Join-Path -Path $appFolderPath -ChildPath "SharePoint_Users_Import.csv"
+$errorLogFilePath = Join-Path -Path $appFolderPath -ChildPath "SharePoint_Users_Import_Errors.txt"
+
+# Ensure the work folder exists
+if (-not (Test-Path -Path $appFolderPath -PathType Container)) {
+    New-Item -Path $appFolderPath -ItemType Directory -Force | Out-Null
+}
 
 # Function to generate template CSV
 function New-TemplateCSV {
