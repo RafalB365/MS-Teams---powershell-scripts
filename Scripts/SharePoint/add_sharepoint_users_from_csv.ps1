@@ -34,7 +34,7 @@ function New-TemplateCSV {
         [PSCustomObject]@{
             SiteURL = "https://yourtenant.sharepoint.com/sites/site2"
             UserEmail = "user3@yourdomain.com"
-            Role = "Owner"
+            Role = "Visitor"
         }
     )
     

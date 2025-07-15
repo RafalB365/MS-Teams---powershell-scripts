@@ -56,8 +56,8 @@ Write-Host "   ██║  ██║███████╗███████
 Write-Host "   ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝     ╚═╝╚═════╝ ╚═╝ ╚═════╝" -ForegroundColor DarkGreen
 Write-Host ""
 Write-Host "   ╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor DarkGreen
-Write-Host "   ║                    v$toolkitVersion - PowerShell Toolkit                    ║" -ForegroundColor DarkGreen
-Write-Host "   ║              Your MS365 Administration Swiss Army Knife!              ║" -ForegroundColor DarkGreen
+Write-Host "   ║                    v$toolkitVersion - PowerShell Toolkit      ║" -ForegroundColor DarkGreen
+Write-Host "   ║              Your MS365 Administration Swiss Army Knife!      ║" -ForegroundColor DarkGreen
 Write-Host "   ╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor DarkGreen
 Write-Host ""
 
