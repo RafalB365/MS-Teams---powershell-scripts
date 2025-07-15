@@ -14,6 +14,52 @@ if (-not (Test-Path -Path $appFolderPath -PathType Container)) {
 Write-Host "=== Azure AD Group Bulk Creation ===" -ForegroundColor Green
 Write-Host ""
 
+# Module management and authentication
+Write-Host "Checking and loading required modules..." -ForegroundColor Yellow
+
+# Remove any existing Microsoft Graph modules to avoid conflicts
+$graphModules = Get-Module -Name "Microsoft.Graph*" -ErrorAction SilentlyContinue
+if ($graphModules) {
+    Write-Host "Removing existing Microsoft Graph modules to avoid conflicts..." -ForegroundColor Yellow
+    Remove-Module -Name "Microsoft.Graph*" -Force -ErrorAction SilentlyContinue
+}
+
+# Import required modules
+try {
+    Import-Module Microsoft.Graph.Groups -Force -ErrorAction Stop
+    Write-Host "✓ Microsoft.Graph.Groups module loaded successfully" -ForegroundColor Green
+}
+catch {
+    Write-Host "✗ Failed to load Microsoft.Graph.Groups module: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Please install the module using: Install-Module Microsoft.Graph.Groups -Scope CurrentUser" -ForegroundColor Yellow
+    exit 1
+}
+
+# Check if user is connected to Microsoft Graph
+try {
+    $context = Get-MgContext -ErrorAction Stop
+    if ($null -eq $context) {
+        Write-Host "Not connected to Microsoft Graph. Please connect first." -ForegroundColor Red
+        Write-Host "Use: Connect-MgGraph -Scopes 'Group.ReadWrite.All','Directory.ReadWrite.All'" -ForegroundColor Yellow
+        exit 1
+    }
+    Write-Host "✓ Connected to Microsoft Graph as: $($context.Account)" -ForegroundColor Green
+}
+catch {
+    Write-Host "Not connected to Microsoft Graph. Attempting to connect..." -ForegroundColor Yellow
+    try {
+        Connect-MgGraph -Scopes 'Group.ReadWrite.All','Directory.ReadWrite.All' -ErrorAction Stop
+        Write-Host "✓ Successfully connected to Microsoft Graph" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "✗ Failed to connect to Microsoft Graph: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "Please run: Connect-MgGraph -Scopes 'Group.ReadWrite.All','Directory.ReadWrite.All'" -ForegroundColor Yellow
+        exit 1
+    }
+}
+
+Write-Host ""
+
 # Ask user if they want to generate a CSV template
 $generateCsv = Read-Host "Do you want to generate a CSV template file? (y/n)"
 
@@ -69,6 +115,26 @@ Write-Host ""
 # Import the CSV file
 $groups = Import-Csv -Path $csvFilePath
 
+# Validate CSV data
+if (-not $groups -or $groups.Count -eq 0) {
+    Write-Host "ERROR: No data found in CSV file or CSV is empty" -ForegroundColor Red
+    exit 1
+}
+
+# Check if required columns exist
+$requiredColumns = @('displayName', 'groupType')
+$csvColumns = $groups[0].PSObject.Properties.Name
+$missingColumns = $requiredColumns | Where-Object { $_ -notin $csvColumns }
+
+if ($missingColumns.Count -gt 0) {
+    Write-Host "ERROR: Missing required columns in CSV: $($missingColumns -join ', ')" -ForegroundColor Red
+    Write-Host "Required columns: $($requiredColumns -join ', ')" -ForegroundColor Yellow
+    exit 1
+}
+
+Write-Host "CSV validation passed. Found $($groups.Count) groups to process." -ForegroundColor Green
+Write-Host ""
+
 # Initialize arrays to track success and failures
 $successGroups = @()
 $failedGroups = @()
@@ -116,42 +182,71 @@ foreach ($group in $groups) {
 
     # Try to add group to Microsoft 365
     try {
-        New-MgGroup @groupParams
-        Write-Host "Group '$($group.displayName)' created successfully."
+        # Check if group with same display name already exists
+        $existingGroup = Get-MgGroup -Filter "displayName eq '$($group.displayName)'" -ErrorAction SilentlyContinue
+        if ($existingGroup) {
+            Write-Host "Group '$($group.displayName)' already exists. Skipping..." -ForegroundColor Yellow
+            continue
+        }
+
+        # Create the group
+        $newGroup = New-MgGroup @groupParams -ErrorAction Stop
+        Write-Host "Group '$($group.displayName)' created successfully. ID: $($newGroup.Id)" -ForegroundColor Green
         $successGroups += $group.displayName
     }
     catch {
-        Write-Host "Failed to create group '$($group.displayName)': $($_.Exception.Message)" -ForegroundColor Red
+        $errorMessage = $_.Exception.Message
+        Write-Host "Failed to create group '$($group.displayName)': $errorMessage" -ForegroundColor Red
+        
+        # Check for specific errors and provide helpful suggestions
+        if ($errorMessage -like "*already exists*") {
+            Write-Host "  Suggestion: A group with this name or mail nickname already exists" -ForegroundColor Yellow
+        }
+        elseif ($errorMessage -like "*insufficient privileges*") {
+            Write-Host "  Suggestion: Check that you have Group.ReadWrite.All and Directory.ReadWrite.All permissions" -ForegroundColor Yellow
+        }
+        elseif ($errorMessage -like "*mailNickname*") {
+            Write-Host "  Suggestion: The mail nickname '$mailNickname' may be invalid or already in use" -ForegroundColor Yellow
+        }
+        
         $failedGroups += @{
             GroupName = $group.displayName
-            Error     = $_.Exception.Message
+            Error     = $errorMessage
             Params    = $groupParams  # Log the parameters that caused the error
         }
     }
 }
 
 # Output summary after the process
-Write-Host "`nGroup Creation Summary:"
-Write-Host "-----------------------"
+Write-Host "`n===================================================" -ForegroundColor Cyan
+Write-Host "           GROUP CREATION SUMMARY" -ForegroundColor Cyan
+Write-Host "===================================================" -ForegroundColor Cyan
+Write-Host "Total groups processed: $($groups.Count)" -ForegroundColor White
+Write-Host "Successfully created: $($successGroups.Count)" -ForegroundColor Green
+Write-Host "Failed to create: $($failedGroups.Count)" -ForegroundColor Red
+Write-Host "===================================================" -ForegroundColor Cyan
 
 # Log successful groups
 if ($successGroups.Count -gt 0) {
-    Write-Host "`nSuccessfully Created Groups:"
+    Write-Host "`n✓ Successfully Created Groups:" -ForegroundColor Green
     foreach ($group in $successGroups) {
-        Write-Host "- $group" -ForegroundColor Green
+        Write-Host "  • $group" -ForegroundColor Green
     }
 } else {
-    Write-Host "No groups were created successfully." -ForegroundColor Yellow
+    Write-Host "`n⚠ No groups were created successfully." -ForegroundColor Yellow
 }
 
 # Log failed groups with errors
 if ($failedGroups.Count -gt 0) {
-    Write-Host "`nFailed to Create the Following Groups:"
+    Write-Host "`n✗ Failed to Create the Following Groups:" -ForegroundColor Red
     foreach ($failure in $failedGroups) {
-        Write-Host "- Group: $($failure.GroupName)" -ForegroundColor Red
-        Write-Host "  Error: $($failure.Error)" -ForegroundColor DarkYellow
-        Write-Host "  Params: $($failure.Params | ConvertTo-Json -Depth 5)" -ForegroundColor DarkGray  # Log the parameters
+        Write-Host "  • Group: $($failure.GroupName)" -ForegroundColor Red
+        Write-Host "    Error: $($failure.Error)" -ForegroundColor DarkYellow
+        Write-Host "    Params: $($failure.Params | ConvertTo-Json -Depth 5)" -ForegroundColor DarkGray
+        Write-Host ""
     }
 } else {
-    Write-Host "No groups failed to create." -ForegroundColor Green
+    Write-Host "`n✓ All groups were created successfully!" -ForegroundColor Green
 }
+
+Write-Host "===================================================" -ForegroundColor Cyan
