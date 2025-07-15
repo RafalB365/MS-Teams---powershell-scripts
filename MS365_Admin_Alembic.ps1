@@ -283,15 +283,19 @@ function Save-Settings {
 function Show-Menu {
     Write-Host "`nSelect an option:" -ForegroundColor Yellow
     
-    # Get unique categories
-    $categories = $scriptInfo.Values | ForEach-Object { $_.Category } | Select-Object -Unique | Sort-Object
+    # Define custom category order
+    $categoryOrder = @("SharePoint", "MS Teams", "Exchange", "Entra")
     
-    foreach ($category in $categories) {
-        Write-Host "`n[$category]" -ForegroundColor Cyan
-        $categoryScripts = $scriptInfo.GetEnumerator() | Where-Object { $_.Value.Category -eq $category } | Sort-Object Name
-        
-        foreach ($script in $categoryScripts) {
-            Write-Host "$($script.Key). $($script.Value.Name)"
+    foreach ($category in $categoryOrder) {
+        # Check if category exists in scripts
+        $categoryExists = $scriptInfo.Values | Where-Object { $_.Category -eq $category }
+        if ($categoryExists) {
+            Write-Host "`n[$category]" -ForegroundColor Cyan
+            $categoryScripts = $scriptInfo.GetEnumerator() | Where-Object { $_.Value.Category -eq $category } | Sort-Object Name
+            
+            foreach ($script in $categoryScripts) {
+                Write-Host "$($script.Key). $($script.Value.Name)"
+            }
         }
     }
     
