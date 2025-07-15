@@ -519,8 +519,13 @@ function Check-AllDependencies {
             $connectChoice = Read-Host "Connect to Microsoft Teams? (y/n)"
             if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
                 Write-Host "Connecting to Microsoft Teams..." -ForegroundColor Yellow
-                Connect-MicrosoftTeams -ErrorAction Stop
-                Write-Host "✓ Connected to Microsoft Teams successfully." -ForegroundColor Green
+                try {
+                    Connect-MicrosoftTeams -ErrorAction Stop
+                    Write-Host "✓ Connected to Microsoft Teams successfully." -ForegroundColor Green
+                }
+                catch {
+                    Write-Host "✗ Failed to connect to Microsoft Teams: $_" -ForegroundColor Red
+                }
             }
         }
     }
