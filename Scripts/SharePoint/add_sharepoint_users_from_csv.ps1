@@ -1,17 +1,69 @@
 # This script adds users to SharePoint site groups (Owners or Members) for multiple sites, based on information in a CSV file. It handles errors and logs any failed operations.
 # CSV File: Contains user assignments; each row should have SiteURL, UserEmail, and Role (e.g., Owner or Member).
-# It requries to install and configure PnP module and give it a correct API permissions for AppRegistration
-
+# PnP connection configuration should be set up in the main menu PnP configurations.
 
 # Import the PnP PowerShell Module
+Import-Module PnP.PowerShell -ErrorAction SilentlyContinue
 
-# Define the input and output paths
-$csvFilePath = "C:\XXX.csv"
-$errorLogFilePath = "C:\AAA.txt"
+# Define the working directory and file paths
+$workingDir = Get-Location
+$csvFilePath = Join-Path -Path $workingDir -ChildPath "SharePoint_Users_Import.csv"
+$errorLogFilePath = Join-Path -Path $workingDir -ChildPath "SharePoint_Users_Import_Errors.txt"
 
-# AAD (Entra ID) App Registration Details
-$tenantId = "XXX"       # Replace with your Tenant ID
-$clientId = "XXX"       # Replace with your Client ID
+# Function to generate template CSV
+function New-TemplateCSV {
+    param([string]$FilePath)
+    
+    $templateData = @(
+        [PSCustomObject]@{
+            SiteURL = "https://yourtenant.sharepoint.com/sites/site1"
+            UserEmail = "user1@yourdomain.com"
+            Role = "Owner"
+        },
+        [PSCustomObject]@{
+            SiteURL = "https://yourtenant.sharepoint.com/sites/site1"
+            UserEmail = "user2@yourdomain.com"
+            Role = "Member"
+        },
+        [PSCustomObject]@{
+            SiteURL = "https://yourtenant.sharepoint.com/sites/site2"
+            UserEmail = "user3@yourdomain.com"
+            Role = "Owner"
+        }
+    )
+    
+    $templateData | Export-Csv -Path $FilePath -NoTypeInformation
+    Write-Host "Template CSV file created at: $FilePath" -ForegroundColor Green
+    Write-Host "Please edit the file with your actual site URLs, user emails, and roles (Owner/Member)" -ForegroundColor Yellow
+}
+
+# Ask user if they want to generate a template CSV
+Write-Host "SharePoint Users Import Script" -ForegroundColor Cyan
+Write-Host "=============================" -ForegroundColor Cyan
+Write-Host ""
+
+if (-not (Test-Path $csvFilePath)) {
+    $generateTemplate = Read-Host "CSV file not found. Would you like to generate a template CSV file? (Y/N)"
+    
+    if ($generateTemplate -eq 'Y' -or $generateTemplate -eq 'y') {
+        New-TemplateCSV -FilePath $csvFilePath
+        Write-Host ""
+        Write-Host "Please edit the template file and run the script again." -ForegroundColor Yellow
+        Write-Host "Press any key to exit..."
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        return
+    } else {
+        Write-Host "Please provide the path to your CSV file:" -ForegroundColor Yellow
+        $userCsvPath = Read-Host "CSV file path"
+        
+        if (Test-Path $userCsvPath) {
+            $csvFilePath = $userCsvPath
+        } else {
+            Write-Host "File not found. Please check the path and try again." -ForegroundColor Red
+            return
+        }
+    }
+}
 
 # Clear previous error log (if any)
 if (Test-Path $errorLogFilePath) {
@@ -27,8 +79,9 @@ foreach ($entry in $data) {
     $role = $entry.Role
 
     try {
-        # Interactive login with Azure App Registration
-        Connect-PnPOnline -Url $siteUrl -ClientId $clientId -Interactive
+        # Connect using PnP settings from main menu configuration
+        # Note: Ensure PnP connection is configured in the main menu before running this script
+        Connect-PnPOnline -Url $siteUrl -Interactive
 
         # Determine the group based on the role
         if ($role -eq "Owner") {
@@ -61,4 +114,12 @@ foreach ($entry in $data) {
         Write-Warning $errorMessage
         Add-Content -Path $errorLogFilePath -Value $errorMessage
     }
+}
+
+Write-Host ""
+Write-Host "Script execution completed!" -ForegroundColor Green
+if (Test-Path $errorLogFilePath) {
+    Write-Host "Check error log at: $errorLogFilePath" -ForegroundColor Yellow
+} else {
+    Write-Host "All operations completed successfully!" -ForegroundColor Green
 }

@@ -87,6 +87,16 @@ function Create-DesktopShortcut {
 $scriptInfo = @{
     # SharePoint scripts
     "1" = @{
+        Name = "Add SharePoint Users from CSV"
+        Description = "Adds users to SharePoint site groups (Owners or Members) for multiple sites based on CSV file"
+        Url = "local"
+        ScriptName = "add_sharepoint_users_from_csv.ps1"
+        LocalPath = "c:\Users\RafałBiłas\OneDrive - sennder Technologies GmbH\Documents\GitHub\MS-Teams---powershell-scripts\Scripts\SharePoint\add_sharepoint_users_from_csv.ps1"
+        RequiredModules = @("PnP.PowerShell")
+        RequiredScopes = @("Sites.FullControl.All")
+        Category = "SharePoint"
+    }
+    "2" = @{
         Name = "SharePoint Site Usage Report"
         Description = "Generates a report of site usage across your SharePoint tenant"
         Url = "https://raw.githubusercontent.com/RafalB365/MS-Teams---powershell-scripts/refs/heads/main/createDL.ps1"  # Replace with actual script
@@ -97,7 +107,7 @@ $scriptInfo = @{
     }
     
     # MS Teams scripts
-    "2" = @{
+    "3" = @{
         Name = "Save all Teams owners to CSV"
         Description = "Since there is no way to see the owners of other Teams, this script list them all and save to CSV"
         Url = "https://raw.githubusercontent.com/RafalB365/MS-Teams---powershell-scripts/refs/heads/main/listallteamowners.ps1"
@@ -106,7 +116,7 @@ $scriptInfo = @{
         RequiredScopes = @("GroupMember.Read.All", "Group.Read.All", "User.Read.All")
         Category = "MS Teams"
     }
-    "3" = @{
+    "4" = @{
         Name = "Teams Usage Analytics" 
         Description = "Generates detailed analytics about Teams usage across your organization"
         Url = "https://raw.githubusercontent.com/RafalB365/MS-Teams---powershell-scripts/refs/heads/main/createDL.ps1"  # Replace with actual script
@@ -117,7 +127,7 @@ $scriptInfo = @{
     }
     
     # Exchange scripts
-    "4" = @{
+    "5" = @{
         Name = "Create DL based on MS 365 group"
         Description = "This script is creating an exchange Distribution List based on the MS 365 group members"
         Url = "https://raw.githubusercontent.com/RafalB365/MS-Teams---powershell-scripts/refs/heads/main/createDL.ps1"
@@ -128,7 +138,7 @@ $scriptInfo = @{
     }
     
     # Entra (Azure AD) scripts
-    "5" = @{
+    "6" = @{
         Name = "Bulk Group Creation from CSV"
         Description = "Bulk creates Microsoft 365 and Security groups from a CSV file with interactive CSV generation"
         Url = "local"  # Use local file instead of GitHub
@@ -138,7 +148,7 @@ $scriptInfo = @{
         RequiredScopes = @("Group.ReadWrite.All", "Directory.ReadWrite.All")
         Category = "Entra"
     }
-    "6" = @{
+    "7" = @{
         Name = "User License Report"
         Description = "Generates a detailed report of license assignments across your tenant"
         Url = "https://raw.githubusercontent.com/RafalB365/MS-Teams---powershell-scripts/refs/heads/main/createDL.ps1"  # Replace with actual script
@@ -482,7 +492,11 @@ do {
         "1" {
             Show-ScriptDescription "1"
             $script = $scriptInfo["1"]
-            Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            if ($script.ContainsKey("LocalPath")) {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache -LocalPath $script.LocalPath
+            } else {
+                Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+            }
         }
         "2" {
             Show-ScriptDescription "2"
@@ -502,15 +516,20 @@ do {
         "5" {
             Show-ScriptDescription "5"
             $script = $scriptInfo["5"]
+            Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
+        }
+        "6" {
+            Show-ScriptDescription "6"
+            $script = $scriptInfo["6"]
             if ($script.ContainsKey("LocalPath")) {
                 Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache -LocalPath $script.LocalPath
             } else {
                 Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
             }
         }
-        "6" {
-            Show-ScriptDescription "6"
-            $script = $scriptInfo["6"]
+        "7" {
+            Show-ScriptDescription "7"
+            $script = $scriptInfo["7"]
             Execute-ScriptFromGitHub -ScriptUrl $script.Url -ScriptName $script.ScriptName -RequiredModules $script.RequiredModules -RequiredScopes $script.RequiredScopes -UseCache:$global:Settings.UseCache
         }
         
