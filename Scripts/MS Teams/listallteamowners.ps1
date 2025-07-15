@@ -1,8 +1,6 @@
 # Since there is no way to see the owners of other Teams, this script list them all and save to CSV
 
 Import-Module Microsoft.Graph.Users
-# Connect to Microsoft Graph
-Connect-MgGraph -Scopes Group.Read.All, User.Read.All
 
 # Get all Teams
 Write-Host "Fetching all Teams..." -ForegroundColor Cyan
@@ -34,8 +32,21 @@ foreach ($Team in $Teams) {
     }
 }
 
+# Ask user for CSV output location
+$saveInWorkFolder = Read-Host "Do you want to save the CSV in the current working folder? (Y/N)"
+if ($saveInWorkFolder -match "^[Yy]") {
+    $csvPath = "Teams_Owners.csv"
+} else {
+    $customPath = Read-Host "Enter the full path where you want to save the CSV file (e.g., C:\Reports\Teams_Owners.csv)"
+    if ([string]::IsNullOrWhiteSpace($customPath)) {
+        Write-Host "No path provided. Using current folder." -ForegroundColor Yellow
+        $csvPath = "Teams_Owners.csv"
+    } else {
+        $csvPath = $customPath
+    }
+}
+
 # Export results to CSV
-$csvPath = "Teams_Owners.csv"
 $Results | Export-Csv -Path $csvPath -NoTypeInformation -Encoding UTF8
 
 Write-Host "Export completed: $csvPath" -ForegroundColor Green

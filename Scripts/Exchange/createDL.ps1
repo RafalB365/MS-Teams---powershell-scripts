@@ -1,11 +1,8 @@
 # This spript is creating an exchange Distribution List based on the MS 365 group members 
 
-# Connect to Exchange Online (Interactive sign-in)
-Connect-ExchangeOnline
-
-# Set your group and DL names
-$SourceGroup = "XXX"         # <-- CHANGE THIS
-$TargetDL    = "XXX"             # <-- CHANGE THIS
+# Prompt for source group and target DL names
+$SourceGroup = Read-Host "Enter the name of the source M365 Group"
+$TargetDL = Read-Host "Enter the name of the target Distribution List"
 
 # Get members of the source M365 Group
 Write-Host "Getting members of the M365 group: $SourceGroup"

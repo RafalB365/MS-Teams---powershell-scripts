@@ -1,6 +1,6 @@
 # MS 365 Admin Alembic with Encrypted Storage and Module Management
-# Version 1.0.5
-$toolkitVersion = "1.0.5"
+# Version 1.0
+$toolkitVersion = "1.0"
 
 # Update application name and folder structure
 $appName = "MS 365 Admin Alembic"

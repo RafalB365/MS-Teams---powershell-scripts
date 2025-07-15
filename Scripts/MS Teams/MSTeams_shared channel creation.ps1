@@ -2,15 +2,19 @@
 
 # Define your team ID
 $teamId = "TYPE-TEAM-ID"  # Replace with the actual Team ID
-$outputCsv = "C:\temp\channelsIDs_export.csv"
-$logFile = "C:\temp\teams_creation_log.txt"
+
+# Get the Alembic work folder path
+$appFolderPath = Join-Path -Path $env:USERPROFILE -ChildPath "MS 365 Admin Alembic"
+
+# Prompt for CSV file path
+$csvPath = Read-Host "Enter the path to your CSV file (or press Enter for default: $appFolderPath\teams_channels_template.csv)"
+if ([string]::IsNullOrWhiteSpace($csvPath)) {
+    $csvPath = Join-Path -Path $appFolderPath -ChildPath "teams_channels_template.csv"
+}
 
 # Read CSV file
-$channelData = Import-Csv -Path $outputCsv
+$channelData = Import-Csv -Path $csvPath
 $existingChannels = @{}
-
-# Initialize log file
-"Script started on $(Get-Date)`n" | Out-File -Append $logFile
 
 # Step 1: Get existing channels in the team
 $existingTeamsChannels = Get-TeamChannel -GroupId $teamId
@@ -33,9 +37,8 @@ foreach ($entry in $channelData) {
             $channel = New-TeamChannel -GroupId $teamId -DisplayName $channelName -MembershipType Shared
             $channelId = $channel.Id
             $existingChannels[$channelName] = $channelId
-            "Created shared channel: $channelName (ID: $channelId)" | Out-File -Append $logFile
         } catch {
-            "Error creating channel '$channelName': $_" | Out-File -Append $logFile
+            Write-Error "Error creating channel '$channelName': $_"
             continue
         }
     }
@@ -46,17 +49,13 @@ foreach ($entry in $channelData) {
         if ($user) {
             Write-Output "Adding user $userEmail to channel $channelName"
             Add-TeamChannelUser -GroupId $teamId -DisplayName $channelName -User $user.UserPrincipalName
-            "User $userEmail added to channel $channelName" | Out-File -Append $logFile
         } else {
             Write-Output "User not found: $userEmail"
-            "Skipping: User not found ($userEmail)" | Out-File -Append $logFile
         }
     } catch {
-        "Error adding user '$userEmail' to '$channelName': $_" | Out-File -Append $logFile
+        Write-Error "Error adding user '$userEmail' to '$channelName': $_"
         continue
     }
 }
 
-# Final log entry
-"Script completed on $(Get-Date)`n" | Out-File -Append $logFile
-Write-Output "Process completed. Check log file at: $logFile"
+Write-Output "Process completed."

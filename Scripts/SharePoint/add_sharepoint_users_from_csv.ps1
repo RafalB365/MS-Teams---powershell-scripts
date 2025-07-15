@@ -57,8 +57,8 @@ if (-not (Test-Path $csvFilePath)) {
         Write-Host "Please edit the template file and run the script again." -ForegroundColor Yellow
         Write-Host "Press any key to exit..."
         $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        # Exit the script after generating the template CSV file
         return
-    } else {
         Write-Host "Please provide the path to your CSV file:" -ForegroundColor Yellow
         $userCsvPath = Read-Host "CSV file path"
         
