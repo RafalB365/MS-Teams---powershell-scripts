@@ -614,6 +614,69 @@ function Check-AllDependencies {
         Write-Host "  • This script will suggest appropriate modules for your version" -ForegroundColor Yellow
         Write-Host "  • Consider upgrading to PowerShell 7: https://github.com/PowerShell/PowerShell/releases" -ForegroundColor Yellow
         
+        # Offer to install PowerShell 7 if using PowerShell 5
+        if ($psVersion.Major -eq 5) {
+            Write-Host "`n--- PowerShell 7 Installation Option ---" -ForegroundColor Cyan
+            Write-Host "PowerShell 7 offers better compatibility with modern modules and improved performance." -ForegroundColor Yellow
+            $installPS7Choice = Read-Host "Would you like to install PowerShell 7? (y/n)"
+            
+            if ($installPS7Choice -eq 'y' -or $installPS7Choice -eq 'Y') {
+                Write-Host "Installing PowerShell 7..." -ForegroundColor Yellow
+                Write-Host "This will use winget to install PowerShell 7. Please wait..." -ForegroundColor Gray
+                
+                try {
+                    # Check if winget is available
+                    $wingetCheck = Get-Command winget -ErrorAction SilentlyContinue
+                    if ($wingetCheck) {
+                        Write-Host "  Using winget to install PowerShell 7..." -ForegroundColor Gray
+                        $installResult = Start-Process -FilePath "winget" -ArgumentList "install", "Microsoft.PowerShell" -Wait -PassThru -NoNewWindow
+                        
+                        if ($installResult.ExitCode -eq 0) {
+                            Write-Host "✓ PowerShell 7 installed successfully!" -ForegroundColor Green
+                            Write-Host "  You can now launch PowerShell 7 by typing 'pwsh' in the command line" -ForegroundColor Green
+                            Write-Host "  Or find 'PowerShell 7' in your Start Menu" -ForegroundColor Green
+                            Write-Host "  Note: You'll need to restart this script in PowerShell 7 to use modern modules" -ForegroundColor Yellow
+                        } else {
+                            Write-Host "✗ PowerShell 7 installation failed (Exit Code: $($installResult.ExitCode))" -ForegroundColor Red
+                            Write-Host "  Try installing manually from: https://github.com/PowerShell/PowerShell/releases" -ForegroundColor Yellow
+                        }
+                    } else {
+                        Write-Host "  winget not found. Trying alternative method..." -ForegroundColor Yellow
+                        
+                        # Try using Chocolatey if available
+                        $chocoCheck = Get-Command choco -ErrorAction SilentlyContinue
+                        if ($chocoCheck) {
+                            Write-Host "  Using Chocolatey to install PowerShell 7..." -ForegroundColor Gray
+                            $installResult = Start-Process -FilePath "choco" -ArgumentList "install", "powershell-core", "-y" -Wait -PassThru -NoNewWindow
+                            
+                            if ($installResult.ExitCode -eq 0) {
+                                Write-Host "✓ PowerShell 7 installed successfully via Chocolatey!" -ForegroundColor Green
+                                Write-Host "  You can now launch PowerShell 7 by typing 'pwsh' in the command line" -ForegroundColor Green
+                                Write-Host "  Note: You'll need to restart this script in PowerShell 7 to use modern modules" -ForegroundColor Yellow
+                            } else {
+                                Write-Host "✗ PowerShell 7 installation via Chocolatey failed" -ForegroundColor Red
+                                Write-Host "  Try installing manually from: https://github.com/PowerShell/PowerShell/releases" -ForegroundColor Yellow
+                            }
+                        } else {
+                            Write-Host "  Neither winget nor Chocolatey found." -ForegroundColor Yellow
+                            Write-Host "  Please install PowerShell 7 manually:" -ForegroundColor Yellow
+                            Write-Host "    1. Go to: https://github.com/PowerShell/PowerShell/releases" -ForegroundColor Yellow
+                            Write-Host "    2. Download the latest PowerShell-7.x.x-win-x64.msi" -ForegroundColor Yellow
+                            Write-Host "    3. Run the installer" -ForegroundColor Yellow
+                            Write-Host "    4. Launch PowerShell 7 from Start Menu or type 'pwsh' in command line" -ForegroundColor Yellow
+                        }
+                    }
+                }
+                catch {
+                    Write-Host "✗ Error during PowerShell 7 installation: $_" -ForegroundColor Red
+                    Write-Host "  Try installing manually from: https://github.com/PowerShell/PowerShell/releases" -ForegroundColor Yellow
+                }
+                
+                Write-Host "`nPress any key to continue with current PowerShell version..." -ForegroundColor Gray
+                $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+            }
+        }
+        
         $continueChoice = Read-Host "Continue with dependency check? (y/n)"
         if ($continueChoice -ne 'y' -and $continueChoice -ne 'Y') {
             return
