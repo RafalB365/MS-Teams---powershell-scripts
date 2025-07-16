@@ -385,6 +385,7 @@ function Show-Menu {
     Write-Host "C. Configure Settings"
     Write-Host "D. Check Dependencies"
     Write-Host "P. Configure PnP Connection"
+    Write-Host "T. Fix Microsoft Graph Issues"
     Write-Host "F. Open Configuration Folder"
     Write-Host "0. Exit`n"
 }
@@ -491,9 +492,112 @@ function Configure-Settings {
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 }
 
+# Function to fix Microsoft Graph MSAL cache issues
+function Fix-MicrosoftGraphModules {
+    Write-Host "`n=== Microsoft Graph Module Troubleshooting ===" -ForegroundColor Green
+    Write-Host "This will help fix common MSAL cache and module compatibility issues." -ForegroundColor Yellow
+    
+    $fixChoice = Read-Host "Do you want to proceed with Microsoft Graph module fixes? (y/n)"
+    if ($fixChoice -ne 'y' -and $fixChoice -ne 'Y') {
+        return
+    }
+    
+    Write-Host "`n--- Step 1: Checking Current Module Versions ---" -ForegroundColor Cyan
+    $graphModules = Get-Module -Name Microsoft.Graph* -ListAvailable | Group-Object Name
+    foreach ($moduleGroup in $graphModules) {
+        $latestVersion = $moduleGroup.Group | Sort-Object Version -Descending | Select-Object -First 1
+        Write-Host "$($moduleGroup.Name): v$($latestVersion.Version)" -ForegroundColor Gray
+    }
+    
+    Write-Host "`n--- Step 2: Disconnecting from Microsoft Graph ---" -ForegroundColor Cyan
+    try {
+        Disconnect-MgGraph -ErrorAction SilentlyContinue
+        Write-Host "✓ Disconnected from Microsoft Graph" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "ℹ Not connected to Microsoft Graph" -ForegroundColor Gray
+    }
+    
+    Write-Host "`n--- Step 3: Updating Microsoft Graph Modules ---" -ForegroundColor Cyan
+    try {
+        Write-Host "Updating Microsoft.Graph modules (this may take a few minutes)..." -ForegroundColor Yellow
+        Update-Module Microsoft.Graph -Force -AllowClobber -ErrorAction Stop
+        Write-Host "✓ Microsoft.Graph modules updated successfully" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "⚠ Failed to update Microsoft.Graph modules: $_" -ForegroundColor Yellow
+        Write-Host "  Trying alternative update method..." -ForegroundColor Yellow
+        
+        try {
+            Install-Module Microsoft.Graph -Force -AllowClobber -Scope CurrentUser -ErrorAction Stop
+            Write-Host "✓ Microsoft.Graph modules installed/updated successfully" -ForegroundColor Green
+        }
+        catch {
+            Write-Host "✗ Failed to install/update Microsoft.Graph modules: $_" -ForegroundColor Red
+            return
+        }
+    }
+    
+    Write-Host "`n--- Step 4: Clearing Module Cache ---" -ForegroundColor Cyan
+    try {
+        # Remove all loaded Microsoft.Graph modules
+        $loadedGraphModules = Get-Module -Name Microsoft.Graph*
+        if ($loadedGraphModules) {
+            $loadedGraphModules | Remove-Module -Force
+            Write-Host "✓ Cleared loaded Microsoft.Graph modules from memory" -ForegroundColor Green
+        }
+        
+        # Clear PowerShell profile cache if it exists
+        if (Test-Path $PROFILE) {
+            Write-Host "ℹ PowerShell profile detected - consider restarting PowerShell for best results" -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "⚠ Error clearing module cache: $_" -ForegroundColor Yellow
+    }
+    
+    Write-Host "`n--- Step 5: Testing Connection ---" -ForegroundColor Cyan
+    try {
+        Write-Host "Testing Microsoft Graph connection with basic scopes..." -ForegroundColor Yellow
+        Connect-MgGraph -Scopes "User.Read.All" -UseDeviceAuthentication -NoProfile -ErrorAction Stop
+        Write-Host "✓ Successfully connected to Microsoft Graph!" -ForegroundColor Green
+        
+        # Test the connection
+        $context = Get-MgContext
+        Write-Host "✓ Connected as: $($context.Account)" -ForegroundColor Green
+        Write-Host "✓ Tenant: $($context.TenantId)" -ForegroundColor Green
+        
+        # Disconnect to clean up
+        Disconnect-MgGraph
+        Write-Host "✓ Test completed successfully" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "✗ Test connection failed: $_" -ForegroundColor Red
+        Write-Host "  You may need to restart PowerShell and try again" -ForegroundColor Yellow
+    }
+    
+    Write-Host "`nMicrosoft Graph troubleshooting completed." -ForegroundColor Green
+    Write-Host "Recommendations:" -ForegroundColor Yellow
+    Write-Host "  1. Restart PowerShell for best results" -ForegroundColor Yellow
+    Write-Host "  2. Try connecting with: Connect-MgGraph -Scopes 'User.Read.All' -UseDeviceAuthentication -NoProfile" -ForegroundColor Yellow
+    Write-Host "  3. Consider upgrading to PowerShell 7+ for better compatibility" -ForegroundColor Yellow
+    
+    Write-Host "`nPress any key to return to menu..." -ForegroundColor Gray
+    $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+}
+
 # Function to check all dependencies
 function Check-AllDependencies {
     Write-Host "`n=== Checking Dependencies ===" -ForegroundColor Green
+    
+    # Display troubleshooting information
+    Write-Host "`n--- Common Issues and Solutions ---" -ForegroundColor Cyan
+    Write-Host "If you encounter authentication errors:" -ForegroundColor Yellow
+    Write-Host "  1. Update Microsoft Graph modules: Update-Module Microsoft.Graph -Force" -ForegroundColor Yellow
+    Write-Host "  2. Clear cached tokens: Clear-MgProfile" -ForegroundColor Yellow
+    Write-Host "  3. Use device code authentication for better compatibility" -ForegroundColor Yellow
+    Write-Host "  4. Ensure your account has appropriate permissions" -ForegroundColor Yellow
+    Write-Host "  5. Check your organization's conditional access policies" -ForegroundColor Yellow
     
     # Check PowerShell version first
     Write-Host "`n--- PowerShell Version Check ---" -ForegroundColor Cyan
@@ -616,6 +720,27 @@ function Check-AllDependencies {
     # Check Microsoft Graph connection
     Write-Host "Checking Microsoft Graph connection..." -NoNewline
     try {
+        # First check if Microsoft.Graph.Authentication module is available
+        $mgAuthModule = Get-Module -Name Microsoft.Graph.Authentication -ListAvailable -ErrorAction SilentlyContinue
+        if (-not $mgAuthModule) {
+            Write-Host " ✗ Microsoft.Graph.Authentication module not available" -ForegroundColor Red
+            Write-Host "  Install with: Install-Module Microsoft.Graph -Scope CurrentUser" -ForegroundColor Yellow
+            return
+        }
+        
+        # Import the authentication module if not already imported
+        $importedAuthModule = Get-Module -Name Microsoft.Graph.Authentication -ErrorAction SilentlyContinue
+        if (-not $importedAuthModule) {
+            try {
+                Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
+            }
+            catch {
+                Write-Host " ✗ Failed to import Microsoft.Graph.Authentication: $_" -ForegroundColor Red
+                Write-Host "  This may indicate compatibility issues with your PowerShell version" -ForegroundColor Yellow
+                return
+            }
+        }
+        
         $mgContext = Get-MgContext -ErrorAction SilentlyContinue
         if ($mgContext) {
             Write-Host " ✓ Connected as $($mgContext.Account)" -ForegroundColor Green
@@ -631,12 +756,41 @@ function Check-AllDependencies {
                 if ($reconnectChoice -eq 'y' -or $reconnectChoice -eq 'Y') {
                     Write-Host "Connecting to Microsoft Graph with all required scopes..." -ForegroundColor Yellow
                     try {
-                        Connect-MgGraph -Scopes $allRequiredScopes -ErrorAction Stop
+                        # Try device code flow first for compatibility with NoProfile
+                        Connect-MgGraph -Scopes $allRequiredScopes -UseDeviceAuthentication -NoProfile -ErrorAction Stop
                         Write-Host "✓ Connected to Microsoft Graph with all required scopes." -ForegroundColor Green
                     }
                     catch {
-                        Write-Host "✗ Failed to connect to Microsoft Graph: $_" -ForegroundColor Red
-                        Write-Host "  Try connecting manually with: Connect-MgGraph -Scopes '$($allRequiredScopes -join "','")'" -ForegroundColor Yellow
+                        Write-Host "✗ Failed to connect to Microsoft Graph with device code: $_" -ForegroundColor Red
+                        
+                        # Check if it's a MSAL cache error
+                        if ($_.Exception.Message -match "MsalCacheHelper|RegisterCache") {
+                            Write-Host "  Detected MSAL cache compatibility issue. Trying alternative method..." -ForegroundColor Yellow
+                            try {
+                                Connect-MgGraph -Scopes $allRequiredScopes -NoProfile -ErrorAction Stop
+                                Write-Host "✓ Connected to Microsoft Graph with all required scopes." -ForegroundColor Green
+                            }
+                            catch {
+                                Write-Host "✗ Failed to connect to Microsoft Graph: $_" -ForegroundColor Red
+                                Write-Host "  MSAL Cache Fix - Try these steps:" -ForegroundColor Yellow
+                                Write-Host "    1. Update Microsoft.Graph modules: Update-Module Microsoft.Graph -Force" -ForegroundColor Yellow
+                                Write-Host "    2. Try device code: Connect-MgGraph -Scopes 'User.Read.All' -UseDeviceAuthentication -NoProfile" -ForegroundColor Yellow
+                                Write-Host "    3. Check PowerShell version compatibility" -ForegroundColor Yellow
+                            }
+                        } else {
+                            Write-Host "  Trying interactive browser authentication..." -ForegroundColor Yellow
+                            try {
+                                Connect-MgGraph -Scopes $allRequiredScopes -ErrorAction Stop
+                                Write-Host "✓ Connected to Microsoft Graph successfully." -ForegroundColor Green
+                            }
+                            catch {
+                                Write-Host "✗ Failed to connect to Microsoft Graph: $_" -ForegroundColor Red
+                                Write-Host "  Common fixes:" -ForegroundColor Yellow
+                                Write-Host "    1. Update Microsoft.Graph modules: Update-Module Microsoft.Graph -Force" -ForegroundColor Yellow
+                                Write-Host "    2. Try device code: Connect-MgGraph -Scopes 'User.Read.All' -UseDeviceAuthentication" -ForegroundColor Yellow
+                                Write-Host "    3. Check PowerShell version compatibility" -ForegroundColor Yellow
+                            }
+                        }
                     }
                 }
             }
@@ -646,60 +800,76 @@ function Check-AllDependencies {
             if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
                 $allRequiredScopes = $scriptInfo.Values | ForEach-Object { $_.RequiredScopes } | Select-Object -Unique | Sort-Object
                 Write-Host "Connecting to Microsoft Graph with scopes: $($allRequiredScopes -join ', ')" -ForegroundColor Yellow
+                
+                # Try device code authentication first for better compatibility
+                Write-Host "Trying device code authentication (recommended for compatibility)..." -ForegroundColor Yellow
                 try {
-                    Connect-MgGraph -Scopes $allRequiredScopes -ErrorAction Stop
+                    # First try with NoProfile to avoid cache issues
+                    Connect-MgGraph -Scopes $allRequiredScopes -UseDeviceAuthentication -NoProfile -ErrorAction Stop
                     Write-Host "✓ Connected to Microsoft Graph successfully." -ForegroundColor Green
                 }
                 catch {
-                    Write-Host "✗ Failed to connect to Microsoft Graph: $_" -ForegroundColor Red
-                    Write-Host "  Try connecting manually with: Connect-MgGraph -Scopes '$($allRequiredScopes -join "','")'" -ForegroundColor Yellow
+                    Write-Host "✗ Device code authentication failed: $_" -ForegroundColor Red
+                    
+                    # Check if it's a MSAL cache error
+                    if ($_.Exception.Message -match "MsalCacheHelper|RegisterCache") {
+                        Write-Host "  Detected MSAL cache compatibility issue. Trying alternative methods..." -ForegroundColor Yellow
+                        
+                        # Try with NoProfile and basic scopes first
+                        try {
+                            Write-Host "  Trying with minimal scopes to establish connection..." -ForegroundColor Yellow
+                            Connect-MgGraph -Scopes "User.Read.All" -UseDeviceAuthentication -NoProfile -ErrorAction Stop
+                            Write-Host "✓ Connected to Microsoft Graph with basic scopes." -ForegroundColor Green
+                            
+                            # Now try to expand scopes
+                            try {
+                                Write-Host "  Expanding to full required scopes..." -ForegroundColor Yellow
+                                Connect-MgGraph -Scopes $allRequiredScopes -UseDeviceAuthentication -NoProfile -ErrorAction Stop
+                                Write-Host "✓ Successfully expanded to all required scopes." -ForegroundColor Green
+                            }
+                            catch {
+                                Write-Host "⚠ Connected with basic scopes but couldn't expand. You may need to connect manually later." -ForegroundColor Yellow
+                            }
+                        }
+                        catch {
+                            Write-Host "  Trying interactive browser authentication..." -ForegroundColor Yellow
+                            try {
+                                Connect-MgGraph -Scopes $allRequiredScopes -NoProfile -ErrorAction Stop
+                                Write-Host "✓ Connected to Microsoft Graph successfully." -ForegroundColor Green
+                            }
+                            catch {
+                                Write-Host "✗ Failed to connect to Microsoft Graph: $_" -ForegroundColor Red
+                                Write-Host "  MSAL Cache Fix - Try these steps:" -ForegroundColor Yellow
+                                Write-Host "    1. Close all PowerShell windows" -ForegroundColor Yellow
+                                Write-Host "    2. Run: Update-Module Microsoft.Graph -Force -AllowClobber" -ForegroundColor Yellow
+                                Write-Host "    3. Run: Uninstall-Module Microsoft.Graph.Authentication -AllVersions" -ForegroundColor Yellow
+                                Write-Host "    4. Run: Install-Module Microsoft.Graph.Authentication -Force" -ForegroundColor Yellow
+                                Write-Host "    5. Try connecting again" -ForegroundColor Yellow
+                                Write-Host "  Alternative: Try PowerShell 7+ for better compatibility" -ForegroundColor Yellow
+                            }
+                        }
+                    } else {
+                        Write-Host "  Trying interactive browser authentication..." -ForegroundColor Yellow
+                        try {
+                            Connect-MgGraph -Scopes $allRequiredScopes -ErrorAction Stop
+                            Write-Host "✓ Connected to Microsoft Graph successfully." -ForegroundColor Green
+                        }
+                        catch {
+                            Write-Host "✗ Failed to connect to Microsoft Graph: $_" -ForegroundColor Red
+                            Write-Host "  Common fixes:" -ForegroundColor Yellow
+                            Write-Host "    1. Update Microsoft.Graph modules: Update-Module Microsoft.Graph -Force" -ForegroundColor Yellow
+                            Write-Host "    2. Try device code manually: Connect-MgGraph -Scopes 'User.Read.All' -UseDeviceAuthentication" -ForegroundColor Yellow
+                            Write-Host "    3. Check if your organization allows Graph API access" -ForegroundColor Yellow
+                            Write-Host "    4. Try connecting with fewer scopes first" -ForegroundColor Yellow
+                        }
+                    }
                 }
             }
         }
     }
     catch {
         Write-Host " ✗ Error checking Microsoft Graph connection: $_" -ForegroundColor Red
-    }
-    
-    # Check PnP PowerShell connection
-    Write-Host "Checking PnP PowerShell connection..." -NoNewline
-    try {
-        $pnpStatus = Test-PnPConnection
-        if ($pnpStatus.IsConnected) {
-            Write-Host " ✓ Connected via $($pnpStatus.Module) to $($pnpStatus.Url)" -ForegroundColor Green
-        } else {
-            Write-Host " ✗ Not connected" -ForegroundColor Red
-            
-            # Check which PnP module is available
-            $modernPnP = Get-Module -Name PnP.PowerShell -ListAvailable -ErrorAction SilentlyContinue
-            $legacyPnP = Get-Module -Name SharePointPnPPowerShellOnline -ListAvailable -ErrorAction SilentlyContinue
-            
-            if ($modernPnP -or $legacyPnP) {
-                $connectChoice = Read-Host "Connect to SharePoint Online? (y/n)"
-                if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
-                    $siteUrl = Read-Host "Enter SharePoint site URL (e.g., https://contoso.sharepoint.com/sites/sitename)"
-                    if (-not [string]::IsNullOrEmpty($siteUrl)) {
-                        Write-Host "Connecting to SharePoint Online..." -ForegroundColor Yellow
-                        try {
-                            if ($modernPnP) {
-                                Connect-PnPOnline -Url $siteUrl -Interactive -ErrorAction Stop
-                            } else {
-                                Connect-PnPOnline -Url $siteUrl -UseWebLogin -ErrorAction Stop
-                            }
-                            Write-Host "✓ Connected to SharePoint Online successfully." -ForegroundColor Green
-                        }
-                        catch {
-                            Write-Host "✗ Failed to connect to SharePoint Online: $_" -ForegroundColor Red
-                        }
-                    }
-                }
-            } else {
-                Write-Host "  ⚠ No PnP modules available. Install PnP.PowerShell (PS 7+) or SharePointPnPPowerShellOnline (PS 5.1)" -ForegroundColor Yellow
-            }
-        }
-    }
-    catch {
-        Write-Host " ✗ Error checking PnP PowerShell connection: $_" -ForegroundColor Red
+        Write-Host "  This may indicate module compatibility issues" -ForegroundColor Yellow
     }
     
     # Check Microsoft Teams connection
@@ -723,12 +893,19 @@ function Check-AllDependencies {
                 }
             }
             
-            # Now check connection
+            # Check connection status using a safer method
             try {
-                $teamsContext = Get-CsTenant -ErrorAction SilentlyContinue
+                # Try to get tenant info - this will fail gracefully if not connected
+                $teamsContext = Get-CsTenant -ErrorAction Stop
                 if ($teamsContext) {
                     Write-Host " ✓ Connected to tenant: $($teamsContext.DisplayName)" -ForegroundColor Green
                 } else {
+                    Write-Host " ✗ Not connected (no tenant info returned)" -ForegroundColor Red
+                }
+            }
+            catch {
+                # Check if it's a "not connected" error or something else
+                if ($_.Exception.Message -match "Session is not established|not connected|authentication|token") {
                     Write-Host " ✗ Not connected" -ForegroundColor Red
                     $connectChoice = Read-Host "Connect to Microsoft Teams? (y/n)"
                     if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
@@ -736,31 +913,34 @@ function Check-AllDependencies {
                         try {
                             Connect-MicrosoftTeams -ErrorAction Stop
                             Write-Host "✓ Connected to Microsoft Teams successfully." -ForegroundColor Green
+                            
+                            # Verify connection
+                            try {
+                                $teamsContext = Get-CsTenant -ErrorAction Stop
+                                Write-Host "✓ Verified connection to: $($teamsContext.DisplayName)" -ForegroundColor Green
+                            }
+                            catch {
+                                Write-Host "⚠ Connected but unable to verify tenant info" -ForegroundColor Yellow
+                            }
                         }
                         catch {
                             Write-Host "✗ Failed to connect to Microsoft Teams: $_" -ForegroundColor Red
+                            Write-Host "  Common fixes:" -ForegroundColor Yellow
+                            Write-Host "    1. Check if your account has Teams admin permissions" -ForegroundColor Yellow
+                            Write-Host "    2. Try updating the module: Update-Module MicrosoftTeams -Force" -ForegroundColor Yellow
+                            Write-Host "    3. Try connecting manually: Connect-MicrosoftTeams" -ForegroundColor Yellow
                         }
                     }
-                }
-            }
-            catch {
-                Write-Host " ✗ Error checking Microsoft Teams connection: $_" -ForegroundColor Red
-                $connectChoice = Read-Host "Connect to Microsoft Teams? (y/n)"
-                if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
-                    try {
-                        Write-Host "Connecting to Microsoft Teams..." -ForegroundColor Yellow
-                        Connect-MicrosoftTeams -ErrorAction Stop
-                        Write-Host "✓ Connected to Microsoft Teams successfully." -ForegroundColor Green
-                    }
-                    catch {
-                        Write-Host "✗ Failed to connect to Microsoft Teams: $_" -ForegroundColor Red
-                    }
+                } else {
+                    Write-Host " ✗ Error checking Microsoft Teams connection: $_" -ForegroundColor Red
+                    Write-Host "  This may indicate module or permission issues" -ForegroundColor Yellow
                 }
             }
         }
     }
     catch {
         Write-Host " ✗ Unexpected error with Microsoft Teams module: $_" -ForegroundColor Red
+        Write-Host "  This may indicate module compatibility issues" -ForegroundColor Yellow
     }
     
     # Check Exchange Online connection
@@ -855,17 +1035,6 @@ function Check-AllDependencies {
     }
     
     try {
-        $pnpStatus = Test-PnPConnection
-        if ($pnpStatus.IsConnected) {
-            Write-Host "✓ PnP PowerShell: Connected via $($pnpStatus.Module) to $($pnpStatus.Url)" -ForegroundColor Green
-        } else {
-            Write-Host "✗ PnP PowerShell: Not connected" -ForegroundColor Red
-        }
-    } catch {
-        Write-Host "✗ PnP PowerShell: Connection error" -ForegroundColor Red
-    }
-    
-    try {
         $teamsModule = Get-Module -Name MicrosoftTeams -ErrorAction SilentlyContinue
         if ($teamsModule) {
             $teamsContext = Get-CsTenant -ErrorAction SilentlyContinue
@@ -906,26 +1075,102 @@ function Check-AllDependencies {
 function Configure-PnPConnection {
     Write-Host "`n=== Configure PnP Connection ===" -ForegroundColor Green
     
-    # Site URL
+    # Check current connection status
+    Write-Host "`n--- Current PnP Connection Status ---" -ForegroundColor Cyan
+    try {
+        $pnpStatus = Test-PnPConnection
+        if ($pnpStatus.IsConnected) {
+            Write-Host "✓ Connected via $($pnpStatus.Module) to $($pnpStatus.Url)" -ForegroundColor Green
+        } else {
+            Write-Host "✗ Not connected" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "✗ Error checking PnP connection: $_" -ForegroundColor Red
+    }
+    
+    # Check which PnP modules are available
+    Write-Host "`n--- Available PnP Modules ---" -ForegroundColor Cyan
+    $modernPnP = Get-Module -Name PnP.PowerShell -ListAvailable -ErrorAction SilentlyContinue
+    $legacyPnP = Get-Module -Name SharePointPnPPowerShellOnline -ListAvailable -ErrorAction SilentlyContinue
+    
+    if ($modernPnP) {
+        Write-Host "✓ PnP.PowerShell (v$($modernPnP[0].Version)) - Modern module" -ForegroundColor Green
+    } else {
+        Write-Host "✗ PnP.PowerShell - Not installed" -ForegroundColor Red
+    }
+    
+    if ($legacyPnP) {
+        Write-Host "✓ SharePointPnPPowerShellOnline (v$($legacyPnP[0].Version)) - Legacy module" -ForegroundColor Yellow
+    } else {
+        Write-Host "✗ SharePointPnPPowerShellOnline - Not installed" -ForegroundColor Red
+    }
+    
+    if (-not $modernPnP -and -not $legacyPnP) {
+        Write-Host "`n⚠ No PnP modules found. Please install appropriate module first:" -ForegroundColor Yellow
+        Write-Host "  - For PowerShell 7+: Install-Module PnP.PowerShell -Scope CurrentUser" -ForegroundColor Yellow
+        Write-Host "  - For PowerShell 5.1: Install-Module SharePointPnPPowerShellOnline -Scope CurrentUser" -ForegroundColor Yellow
+        Write-Host "`nPress any key to return to menu..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
+        return
+    }
+    
+    Write-Host "`n--- Connection Configuration ---" -ForegroundColor Cyan
+    
+    # Site URL configuration
     $currentSiteUrl = if ($global:Settings.PnPConnection.ContainsKey("SiteUrl")) { $global:Settings.PnPConnection.SiteUrl } else { "Not set" }
     Write-Host "Current Site URL: $currentSiteUrl" -ForegroundColor Gray
     $siteUrl = Read-Host "Enter SharePoint Site URL (or press Enter to keep current)"
     if (-not [string]::IsNullOrEmpty($siteUrl)) {
         $global:Settings.PnPConnection.SiteUrl = $siteUrl
+        Save-Settings
+        Write-Host "Site URL saved." -ForegroundColor Green
     }
     
-    # Client ID
+    # Client ID configuration
     $currentClientId = if ($global:Settings.PnPConnection.ContainsKey("ClientId")) { $global:Settings.PnPConnection.ClientId } else { "Not set" }
     Write-Host "Current Client ID: $currentClientId" -ForegroundColor Gray
     $clientId = Read-Host "Enter App Registration Client ID (or press Enter to keep current)"
     if (-not [string]::IsNullOrEmpty($clientId)) {
         $global:Settings.PnPConnection.ClientId = $clientId
+        Save-Settings
+        Write-Host "Client ID saved." -ForegroundColor Green
     }
     
-    # Save settings
-    Save-Settings
-    Write-Host "PnP connection settings saved successfully." -ForegroundColor Green
+    # Connection testing
+    Write-Host "`n--- Connection Testing ---" -ForegroundColor Cyan
+    $connectChoice = Read-Host "Test PnP connection now? (y/n)"
+    if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
+        $testSiteUrl = if ($global:Settings.PnPConnection.ContainsKey("SiteUrl") -and -not [string]::IsNullOrEmpty($global:Settings.PnPConnection.SiteUrl)) {
+            $global:Settings.PnPConnection.SiteUrl
+        } else {
+            Read-Host "Enter SharePoint site URL for testing"
+        }
+        
+        if (-not [string]::IsNullOrEmpty($testSiteUrl)) {
+            Write-Host "Testing connection to $testSiteUrl..." -ForegroundColor Yellow
+            try {
+                if ($modernPnP) {
+                    Connect-PnPOnline -Url $testSiteUrl -Interactive -ErrorAction Stop
+                } else {
+                    Connect-PnPOnline -Url $testSiteUrl -UseWebLogin -ErrorAction Stop
+                }
+                Write-Host "✓ Connected to SharePoint Online successfully!" -ForegroundColor Green
+                
+                # Test basic functionality
+                try {
+                    $web = Get-PnPWeb -ErrorAction Stop
+                    Write-Host "✓ Site Title: $($web.Title)" -ForegroundColor Green
+                } catch {
+                    Write-Host "⚠ Connected but unable to retrieve site information: $_" -ForegroundColor Yellow
+                }
+            }
+            catch {
+                Write-Host "✗ Failed to connect to SharePoint Online: $_" -ForegroundColor Red
+            }
+        }
+    }
     
+    Write-Host "`nPnP connection configuration completed." -ForegroundColor Green
     Write-Host "`nPress any key to return to menu..." -ForegroundColor Gray
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
 }
@@ -1042,6 +1287,7 @@ do {
         "C" { Configure-Settings }
         "D" { Check-AllDependencies }
         "P" { Configure-PnPConnection }
+        "T" { Fix-MicrosoftGraphModules }
         "F" { Open-ConfigFolder }
         "0" { 
             Write-Host "Exiting..." -ForegroundColor Yellow
