@@ -983,43 +983,23 @@ function Check-AllDependencies {
                 $connectChoice = Read-Host "Connect to Exchange Online? (y/n)"
                 if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
                     Write-Host "Connecting to Exchange Online..." -ForegroundColor Yellow
-                    Write-Host "  Note: This may open a browser window for authentication" -ForegroundColor Cyan
-                    Write-Host "  If it hangs, press Ctrl+C to cancel and try connecting manually" -ForegroundColor Cyan
+                    Write-Host "  Note: This will open a browser window for authentication" -ForegroundColor Cyan
+                    Write-Host "  Please complete the authentication in the browser window" -ForegroundColor Cyan
                     
                     try {
-                        # Use a timeout mechanism and show progress
-                        $job = Start-Job -ScriptBlock {
-                            Import-Module ExchangeOnlineManagement -ErrorAction Stop
-                            Connect-ExchangeOnline -ErrorAction Stop
-                        }
+                        # Use direct connection to allow browser authentication
+                        Write-Host "  Attempting to connect with interactive authentication..." -ForegroundColor Gray
+                        Connect-ExchangeOnline -ErrorAction Stop
                         
-                        # Wait for job with timeout (30 seconds)
-                        $timeout = 30
-                        $completed = Wait-Job -Job $job -Timeout $timeout
-                        
-                        if ($completed) {
-                            $result = Receive-Job -Job $job -ErrorAction SilentlyContinue
-                            Remove-Job -Job $job
-                            
-                            # Verify connection after job completion
-                            Start-Sleep -Seconds 2
-                            $connectionInfo = Get-ConnectionInformation -ErrorAction SilentlyContinue
-                            if ($connectionInfo) {
-                                Write-Host "✓ Connected to Exchange Online successfully." -ForegroundColor Green
-                            } else {
-                                Write-Host "⚠ Connection command completed but unable to verify connection" -ForegroundColor Yellow
-                                Write-Host "  Try running: Get-ConnectionInformation" -ForegroundColor Yellow
-                            }
+                        # Verify connection after connection
+                        Start-Sleep -Seconds 2
+                        $connectionInfo = Get-ConnectionInformation -ErrorAction SilentlyContinue
+                        if ($connectionInfo) {
+                            Write-Host "✓ Connected to Exchange Online successfully." -ForegroundColor Green
+                            Write-Host "  Organization: $($connectionInfo.Organization)" -ForegroundColor Green
                         } else {
-                            # Job timed out
-                            Stop-Job -Job $job
-                            Remove-Job -Job $job
-                            Write-Host "⚠ Connection attempt timed out after $timeout seconds" -ForegroundColor Yellow
-                            Write-Host "  Common fixes:" -ForegroundColor Yellow
-                            Write-Host "    1. Check if browser authentication window is open" -ForegroundColor Yellow
-                            Write-Host "    2. Try connecting manually: Connect-ExchangeOnline" -ForegroundColor Yellow
-                            Write-Host "    3. Check network connectivity and firewall settings" -ForegroundColor Yellow
-                            Write-Host "    4. Verify your account has Exchange Online permissions" -ForegroundColor Yellow
+                            Write-Host "⚠ Connection command completed but unable to verify connection" -ForegroundColor Yellow
+                            Write-Host "  Try running: Get-ConnectionInformation" -ForegroundColor Yellow
                         }
                     }
                     catch {
@@ -1029,6 +1009,40 @@ function Check-AllDependencies {
                         Write-Host "    2. Check if Modern Authentication is enabled" -ForegroundColor Yellow
                         Write-Host "    3. Verify your account has Exchange admin permissions" -ForegroundColor Yellow
                         Write-Host "    4. Update the module: Update-Module ExchangeOnlineManagement -Force" -ForegroundColor Yellow
+                        Write-Host "    5. If browser doesn't open, try: Connect-ExchangeOnline -UseRPSSession" -ForegroundColor Yellow
+                        
+                        # Offer alternative connection methods
+                        Write-Host "`n  Alternative connection methods:" -ForegroundColor Cyan
+                        $altChoice = Read-Host "Try alternative connection method? (d=device code, m=manual, s=skip) [d/m/s]"
+                        
+                        switch ($altChoice.ToLower()) {
+                            "d" {
+                                Write-Host "  Trying device code authentication..." -ForegroundColor Yellow
+                                try {
+                                    Connect-ExchangeOnline -Device -ErrorAction Stop
+                                    Write-Host "✓ Connected to Exchange Online with device code." -ForegroundColor Green
+                                    
+                                    # Verify connection
+                                    Start-Sleep -Seconds 2
+                                    $connectionInfo = Get-ConnectionInformation -ErrorAction SilentlyContinue
+                                    if ($connectionInfo) {
+                                        Write-Host "  Organization: $($connectionInfo.Organization)" -ForegroundColor Green
+                                    }
+                                }
+                                catch {
+                                    Write-Host "✗ Device code authentication also failed: $_" -ForegroundColor Red
+                                }
+                            }
+                            "m" {
+                                Write-Host "  Please try connecting manually with one of these commands:" -ForegroundColor Yellow
+                                Write-Host "    Connect-ExchangeOnline" -ForegroundColor White
+                                Write-Host "    Connect-ExchangeOnline -Device" -ForegroundColor White
+                                Write-Host "    Connect-ExchangeOnline -UseRPSSession" -ForegroundColor White
+                            }
+                            default {
+                                Write-Host "  Skipping Exchange Online connection." -ForegroundColor Gray
+                            }
+                        }
                     }
                 }
             }
@@ -1038,29 +1052,66 @@ function Check-AllDependencies {
             $connectChoice = Read-Host "Connect to Exchange Online? (y/n)"
             if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
                 Write-Host "Connecting to Exchange Online..." -ForegroundColor Yellow
-                Write-Host "  Note: This may open a browser window for authentication" -ForegroundColor Cyan
+                Write-Host "  Note: This will open a browser window for authentication" -ForegroundColor Cyan
+                Write-Host "  Please complete the authentication in the browser window" -ForegroundColor Cyan
                 
                 try {
-                    # Use direct connection with timeout warning
-                    $timeoutWarning = {
-                        Start-Sleep -Seconds 15
-                        Write-Host "  Still connecting... This may take a moment" -ForegroundColor Yellow
-                        Start-Sleep -Seconds 15
-                        Write-Host "  If this hangs, press Ctrl+C to cancel" -ForegroundColor Yellow
-                    }
-                    
-                    $warningJob = Start-Job -ScriptBlock $timeoutWarning
+                    # Use direct connection to allow browser authentication
+                    Write-Host "  Attempting to connect with interactive authentication..." -ForegroundColor Gray
                     Connect-ExchangeOnline -ErrorAction Stop
-                    Stop-Job -Job $warningJob -ErrorAction SilentlyContinue
-                    Remove-Job -Job $warningJob -ErrorAction SilentlyContinue
                     
-                    Write-Host "✓ Connected to Exchange Online successfully." -ForegroundColor Green
+                    # Verify connection
+                    Start-Sleep -Seconds 2
+                    $connectionInfo = Get-ConnectionInformation -ErrorAction SilentlyContinue
+                    if ($connectionInfo) {
+                        Write-Host "✓ Connected to Exchange Online successfully." -ForegroundColor Green
+                        Write-Host "  Organization: $($connectionInfo.Organization)" -ForegroundColor Green
+                    } else {
+                        Write-Host "⚠ Connection command completed but unable to verify connection" -ForegroundColor Yellow
+                        Write-Host "  Try running: Get-ConnectionInformation" -ForegroundColor Yellow
+                    }
                 }
                 catch {
-                    Stop-Job -Job $warningJob -ErrorAction SilentlyContinue
-                    Remove-Job -Job $warningJob -ErrorAction SilentlyContinue
                     Write-Host "✗ Failed to connect to Exchange Online: $_" -ForegroundColor Red
-                    Write-Host "  Try connecting manually with: Connect-ExchangeOnline" -ForegroundColor Yellow
+                    Write-Host "  Troubleshooting steps:" -ForegroundColor Yellow
+                    Write-Host "    1. Try connecting manually: Connect-ExchangeOnline" -ForegroundColor Yellow
+                    Write-Host "    2. Check if Modern Authentication is enabled" -ForegroundColor Yellow
+                    Write-Host "    3. Verify your account has Exchange admin permissions" -ForegroundColor Yellow
+                    Write-Host "    4. Update the module: Update-Module ExchangeOnlineManagement -Force" -ForegroundColor Yellow
+                    Write-Host "    5. If browser doesn't open, try: Connect-ExchangeOnline -UseRPSSession" -ForegroundColor Yellow
+                    
+                    # Offer alternative connection methods
+                    Write-Host "`n  Alternative connection methods:" -ForegroundColor Cyan
+                    $altChoice = Read-Host "Try alternative connection method? (d=device code, m=manual, s=skip) [d/m/s]"
+                    
+                    switch ($altChoice.ToLower()) {
+                        "d" {
+                            Write-Host "  Trying device code authentication..." -ForegroundColor Yellow
+                            try {
+                                Connect-ExchangeOnline -Device -ErrorAction Stop
+                                Write-Host "✓ Connected to Exchange Online with device code." -ForegroundColor Green
+                                
+                                # Verify connection
+                                Start-Sleep -Seconds 2
+                                $connectionInfo = Get-ConnectionInformation -ErrorAction SilentlyContinue
+                                if ($connectionInfo) {
+                                    Write-Host "  Organization: $($connectionInfo.Organization)" -ForegroundColor Green
+                                }
+                            }
+                            catch {
+                                Write-Host "✗ Device code authentication also failed: $_" -ForegroundColor Red
+                            }
+                        }
+                        "m" {
+                            Write-Host "  Please try connecting manually with one of these commands:" -ForegroundColor Yellow
+                            Write-Host "    Connect-ExchangeOnline" -ForegroundColor White
+                            Write-Host "    Connect-ExchangeOnline -Device" -ForegroundColor White
+                            Write-Host "    Connect-ExchangeOnline -UseRPSSession" -ForegroundColor White
+                        }
+                        default {
+                            Write-Host "  Skipping Exchange Online connection." -ForegroundColor Gray
+                        }
+                    }
                 }
             }
         }
