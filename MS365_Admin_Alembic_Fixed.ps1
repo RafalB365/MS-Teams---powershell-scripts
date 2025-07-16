@@ -989,45 +989,48 @@ function Check-AllDependencies {
                     try {
                         # Use direct connection to allow browser authentication
                         Write-Host "  Attempting to connect with interactive authentication..." -ForegroundColor Gray
-                        Write-Host "  If browser doesn't open, try Ctrl+C and use device code option" -ForegroundColor Gray
+                        Write-Host "  If browser doesn't open in 15 seconds, connection will timeout" -ForegroundColor Gray
                         
-                        # Check if we're in VS Code integrated terminal
-                        $isVSCodeTerminal = $env:TERM_PROGRAM -eq "vscode" -or $env:VSCODE_PID -ne $null
-                        if ($isVSCodeTerminal) {
-                            Write-Host "  VS Code terminal detected - forcing interactive mode" -ForegroundColor Gray
-                        }
+                        # Try direct connection with a short timeout to prevent hanging
+                        $timeout = 15  # Short timeout - if browser doesn't open quickly, it probably won't work
+                        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
                         
-                        # Force interactive authentication by explicitly setting the authentication type
-                        $env:POWERSHELL_TELEMETRY_OPTOUT = 1  # Disable telemetry that might interfere
-                        
-                        # Try with timeout to prevent hanging
-                        $timeout = 45  # 45 seconds timeout
-                        $connectionJob = Start-Job -ScriptBlock {
-                            param($showBanner)
-                            Import-Module ExchangeOnlineManagement -ErrorAction Stop
-                            if ($showBanner) {
-                                Connect-ExchangeOnline -ErrorAction Stop
-                            } else {
+                        try {
+                            # Set environment for better compatibility
+                            $env:POWERSHELL_TELEMETRY_OPTOUT = 1
+                            
+                            # Use a very short timeout approach
+                            $connectionAttempt = {
                                 Connect-ExchangeOnline -ShowBanner:$false -ErrorAction Stop
                             }
-                        } -ArgumentList $false
-                        
-                        Write-Host "  Waiting for authentication (timeout: $timeout seconds)..." -ForegroundColor Gray
-                        $completed = Wait-Job -Job $connectionJob -Timeout $timeout
-                        
-                        if ($completed) {
-                            $result = Receive-Job -Job $connectionJob -ErrorAction SilentlyContinue
-                            $jobError = Receive-Job -Job $connectionJob -ErrorAction SilentlyContinue -ErrorVariable jobErrors
-                            Remove-Job -Job $connectionJob -Force
                             
-                            if ($jobErrors) {
-                                throw $jobErrors[0]
+                            # Try the connection with timeout
+                            $job = Start-Job -ScriptBlock {
+                                Import-Module ExchangeOnlineManagement -ErrorAction Stop
+                                Connect-ExchangeOnline -ShowBanner:$false -ErrorAction Stop
                             }
-                        } else {
-                            # Job timed out
-                            Stop-Job -Job $connectionJob -ErrorAction SilentlyContinue
-                            Remove-Job -Job $connectionJob -Force -ErrorAction SilentlyContinue
-                            throw "Connection timed out after $timeout seconds. Browser authentication may not be working in this environment."
+                            
+                            # Wait with shorter timeout
+                            Write-Host "  Waiting for browser authentication..." -ForegroundColor Gray
+                            $result = Wait-Job -Job $job -Timeout $timeout
+                            
+                            if ($result) {
+                                # Job completed
+                                $errors = Receive-Job -Job $job -ErrorAction SilentlyContinue -ErrorVariable jobErrors
+                                Remove-Job -Job $job -Force
+                                
+                                if ($jobErrors) {
+                                    throw $jobErrors[0]
+                                }
+                            } else {
+                                # Timeout - clean up and throw error
+                                Stop-Job -Job $job -ErrorAction SilentlyContinue
+                                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+                                throw "Browser authentication timed out after $timeout seconds"
+                            }
+                        }
+                        finally {
+                            $stopwatch.Stop()
                         }
                         
                         # Verify connection after connection
@@ -1097,45 +1100,48 @@ function Check-AllDependencies {
                 try {
                     # Use direct connection to allow browser authentication
                     Write-Host "  Attempting to connect with interactive authentication..." -ForegroundColor Gray
-                    Write-Host "  If browser doesn't open, try Ctrl+C and use device code option" -ForegroundColor Gray
+                    Write-Host "  If browser doesn't open in 15 seconds, connection will timeout" -ForegroundColor Gray
                     
-                    # Check if we're in VS Code integrated terminal
-                    $isVSCodeTerminal = $env:TERM_PROGRAM -eq "vscode" -or $env:VSCODE_PID -ne $null
-                    if ($isVSCodeTerminal) {
-                        Write-Host "  VS Code terminal detected - forcing interactive mode" -ForegroundColor Gray
-                    }
+                    # Try direct connection with a short timeout to prevent hanging
+                    $timeout = 15  # Short timeout - if browser doesn't open quickly, it probably won't work
+                    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
                     
-                    # Force interactive authentication by explicitly setting the authentication type
-                    $env:POWERSHELL_TELEMETRY_OPTOUT = 1  # Disable telemetry that might interfere
-                    
-                    # Try with timeout to prevent hanging
-                    $timeout = 45  # 45 seconds timeout
-                    $connectionJob = Start-Job -ScriptBlock {
-                        param($showBanner)
-                        Import-Module ExchangeOnlineManagement -ErrorAction Stop
-                        if ($showBanner) {
-                            Connect-ExchangeOnline -ErrorAction Stop
-                        } else {
+                    try {
+                        # Set environment for better compatibility
+                        $env:POWERSHELL_TELEMETRY_OPTOUT = 1
+                        
+                        # Use a very short timeout approach
+                        $connectionAttempt = {
                             Connect-ExchangeOnline -ShowBanner:$false -ErrorAction Stop
                         }
-                    } -ArgumentList $false
-                    
-                    Write-Host "  Waiting for authentication (timeout: $timeout seconds)..." -ForegroundColor Gray
-                    $completed = Wait-Job -Job $connectionJob -Timeout $timeout
-                    
-                    if ($completed) {
-                        $result = Receive-Job -Job $connectionJob -ErrorAction SilentlyContinue
-                        $jobError = Receive-Job -Job $connectionJob -ErrorAction SilentlyContinue -ErrorVariable jobErrors
-                        Remove-Job -Job $connectionJob -Force
                         
-                        if ($jobErrors) {
-                            throw $jobErrors[0]
+                        # Try the connection with timeout
+                        $job = Start-Job -ScriptBlock {
+                            Import-Module ExchangeOnlineManagement -ErrorAction Stop
+                            Connect-ExchangeOnline -ShowBanner:$false -ErrorAction Stop
                         }
-                    } else {
-                        # Job timed out
-                        Stop-Job -Job $connectionJob -ErrorAction SilentlyContinue
-                        Remove-Job -Job $connectionJob -Force -ErrorAction SilentlyContinue
-                        throw "Connection timed out after $timeout seconds. Browser authentication may not be working in this environment."
+                        
+                        # Wait with shorter timeout
+                        Write-Host "  Waiting for browser authentication..." -ForegroundColor Gray
+                        $result = Wait-Job -Job $job -Timeout $timeout
+                        
+                        if ($result) {
+                            # Job completed
+                            $errors = Receive-Job -Job $job -ErrorAction SilentlyContinue -ErrorVariable jobErrors
+                            Remove-Job -Job $job -Force
+                            
+                            if ($jobErrors) {
+                                throw $jobErrors[0]
+                            }
+                        } else {
+                            # Timeout - clean up and throw error
+                            Stop-Job -Job $job -ErrorAction SilentlyContinue
+                            Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+                            throw "Browser authentication timed out after $timeout seconds"
+                        }
+                    }
+                    finally {
+                        $stopwatch.Stop()
                     }
                     
                     # Verify connection
