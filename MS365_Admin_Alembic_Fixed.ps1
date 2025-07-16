@@ -559,7 +559,7 @@ function Fix-MicrosoftGraphModules {
     Write-Host "`n--- Step 5: Testing Connection ---" -ForegroundColor Cyan
     try {
         Write-Host "Testing Microsoft Graph connection with basic scopes..." -ForegroundColor Yellow
-        Connect-MgGraph -Scopes "User.Read.All" -UseDeviceAuthentication -NoProfile -ErrorAction Stop
+        Connect-MgGraph -Scopes "User.Read.All" -ErrorAction Stop
         Write-Host "✓ Successfully connected to Microsoft Graph!" -ForegroundColor Green
         
         # Test the connection
@@ -579,8 +579,9 @@ function Fix-MicrosoftGraphModules {
     Write-Host "`nMicrosoft Graph troubleshooting completed." -ForegroundColor Green
     Write-Host "Recommendations:" -ForegroundColor Yellow
     Write-Host "  1. Restart PowerShell for best results" -ForegroundColor Yellow
-    Write-Host "  2. Try connecting with: Connect-MgGraph -Scopes 'User.Read.All' -UseDeviceAuthentication -NoProfile" -ForegroundColor Yellow
-    Write-Host "  3. Consider upgrading to PowerShell 7+ for better compatibility" -ForegroundColor Yellow
+    Write-Host "  2. Try connecting with: Connect-MgGraph -Scopes 'User.Read.All'" -ForegroundColor Yellow
+    Write-Host "  3. For device code: Connect-MgGraph -Scopes 'User.Read.All' -UseDeviceAuthentication" -ForegroundColor Yellow
+    Write-Host "  4. Consider upgrading to PowerShell 7+ for better compatibility" -ForegroundColor Yellow
     
     Write-Host "`nPress any key to return to menu..." -ForegroundColor Gray
     $null = $Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown')
@@ -595,9 +596,10 @@ function Check-AllDependencies {
     Write-Host "If you encounter authentication errors:" -ForegroundColor Yellow
     Write-Host "  1. Update Microsoft Graph modules: Update-Module Microsoft.Graph -Force" -ForegroundColor Yellow
     Write-Host "  2. Clear cached tokens: Clear-MgProfile" -ForegroundColor Yellow
-    Write-Host "  3. Use device code authentication for better compatibility" -ForegroundColor Yellow
-    Write-Host "  4. Ensure your account has appropriate permissions" -ForegroundColor Yellow
-    Write-Host "  5. Check your organization's conditional access policies" -ForegroundColor Yellow
+    Write-Host "  3. Try interactive browser authentication: Connect-MgGraph -Scopes 'User.Read.All'" -ForegroundColor Yellow
+    Write-Host "  4. Use device code authentication for compatibility: Connect-MgGraph -UseDeviceAuthentication" -ForegroundColor Yellow
+    Write-Host "  5. Ensure your account has appropriate permissions" -ForegroundColor Yellow
+    Write-Host "  6. Check your organization's conditional access policies" -ForegroundColor Yellow
     
     # Check PowerShell version first
     Write-Host "`n--- PowerShell Version Check ---" -ForegroundColor Cyan
@@ -756,31 +758,31 @@ function Check-AllDependencies {
                 if ($reconnectChoice -eq 'y' -or $reconnectChoice -eq 'Y') {
                     Write-Host "Connecting to Microsoft Graph with all required scopes..." -ForegroundColor Yellow
                     try {
-                        # Try device code flow first for compatibility with NoProfile
-                        Connect-MgGraph -Scopes $allRequiredScopes -UseDeviceAuthentication -NoProfile -ErrorAction Stop
+                        # Try interactive browser authentication first (user preference)
+                        Connect-MgGraph -Scopes $allRequiredScopes -ErrorAction Stop
                         Write-Host "✓ Connected to Microsoft Graph with all required scopes." -ForegroundColor Green
                     }
                     catch {
-                        Write-Host "✗ Failed to connect to Microsoft Graph with device code: $_" -ForegroundColor Red
+                        Write-Host "✗ Failed to connect to Microsoft Graph with interactive browser: $_" -ForegroundColor Red
                         
                         # Check if it's a MSAL cache error
                         if ($_.Exception.Message -match "MsalCacheHelper|RegisterCache") {
-                            Write-Host "  Detected MSAL cache compatibility issue. Trying alternative method..." -ForegroundColor Yellow
+                            Write-Host "  Detected MSAL cache compatibility issue. Trying device code..." -ForegroundColor Yellow
                             try {
-                                Connect-MgGraph -Scopes $allRequiredScopes -NoProfile -ErrorAction Stop
+                                Connect-MgGraph -Scopes $allRequiredScopes -UseDeviceAuthentication -ErrorAction Stop
                                 Write-Host "✓ Connected to Microsoft Graph with all required scopes." -ForegroundColor Green
                             }
                             catch {
                                 Write-Host "✗ Failed to connect to Microsoft Graph: $_" -ForegroundColor Red
                                 Write-Host "  MSAL Cache Fix - Try these steps:" -ForegroundColor Yellow
                                 Write-Host "    1. Update Microsoft.Graph modules: Update-Module Microsoft.Graph -Force" -ForegroundColor Yellow
-                                Write-Host "    2. Try device code: Connect-MgGraph -Scopes 'User.Read.All' -UseDeviceAuthentication -NoProfile" -ForegroundColor Yellow
+                                Write-Host "    2. Try device code: Connect-MgGraph -Scopes 'User.Read.All' -UseDeviceAuthentication" -ForegroundColor Yellow
                                 Write-Host "    3. Check PowerShell version compatibility" -ForegroundColor Yellow
                             }
                         } else {
-                            Write-Host "  Trying interactive browser authentication..." -ForegroundColor Yellow
+                            Write-Host "  Trying device code authentication..." -ForegroundColor Yellow
                             try {
-                                Connect-MgGraph -Scopes $allRequiredScopes -ErrorAction Stop
+                                Connect-MgGraph -Scopes $allRequiredScopes -UseDeviceAuthentication -ErrorAction Stop
                                 Write-Host "✓ Connected to Microsoft Graph successfully." -ForegroundColor Green
                             }
                             catch {
@@ -801,30 +803,29 @@ function Check-AllDependencies {
                 $allRequiredScopes = $scriptInfo.Values | ForEach-Object { $_.RequiredScopes } | Select-Object -Unique | Sort-Object
                 Write-Host "Connecting to Microsoft Graph with scopes: $($allRequiredScopes -join ', ')" -ForegroundColor Yellow
                 
-                # Try device code authentication first for better compatibility
-                Write-Host "Trying device code authentication (recommended for compatibility)..." -ForegroundColor Yellow
+                # Try interactive browser authentication first (user preference)
+                Write-Host "Trying interactive browser authentication..." -ForegroundColor Yellow
                 try {
-                    # First try with NoProfile to avoid cache issues
-                    Connect-MgGraph -Scopes $allRequiredScopes -UseDeviceAuthentication -NoProfile -ErrorAction Stop
+                    Connect-MgGraph -Scopes $allRequiredScopes -ErrorAction Stop
                     Write-Host "✓ Connected to Microsoft Graph successfully." -ForegroundColor Green
                 }
                 catch {
-                    Write-Host "✗ Device code authentication failed: $_" -ForegroundColor Red
+                    Write-Host "✗ Interactive browser authentication failed: $_" -ForegroundColor Red
                     
                     # Check if it's a MSAL cache error
                     if ($_.Exception.Message -match "MsalCacheHelper|RegisterCache") {
-                        Write-Host "  Detected MSAL cache compatibility issue. Trying alternative methods..." -ForegroundColor Yellow
+                        Write-Host "  Detected MSAL cache compatibility issue. Trying device code authentication..." -ForegroundColor Yellow
                         
-                        # Try with NoProfile and basic scopes first
+                        # Try device code as fallback
                         try {
-                            Write-Host "  Trying with minimal scopes to establish connection..." -ForegroundColor Yellow
-                            Connect-MgGraph -Scopes "User.Read.All" -UseDeviceAuthentication -NoProfile -ErrorAction Stop
+                            Write-Host "  Trying device code authentication..." -ForegroundColor Yellow
+                            Connect-MgGraph -Scopes "User.Read.All" -UseDeviceAuthentication -ErrorAction Stop
                             Write-Host "✓ Connected to Microsoft Graph with basic scopes." -ForegroundColor Green
                             
                             # Now try to expand scopes
                             try {
                                 Write-Host "  Expanding to full required scopes..." -ForegroundColor Yellow
-                                Connect-MgGraph -Scopes $allRequiredScopes -UseDeviceAuthentication -NoProfile -ErrorAction Stop
+                                Connect-MgGraph -Scopes $allRequiredScopes -UseDeviceAuthentication -ErrorAction Stop
                                 Write-Host "✓ Successfully expanded to all required scopes." -ForegroundColor Green
                             }
                             catch {
@@ -832,26 +833,19 @@ function Check-AllDependencies {
                             }
                         }
                         catch {
-                            Write-Host "  Trying interactive browser authentication..." -ForegroundColor Yellow
-                            try {
-                                Connect-MgGraph -Scopes $allRequiredScopes -NoProfile -ErrorAction Stop
-                                Write-Host "✓ Connected to Microsoft Graph successfully." -ForegroundColor Green
-                            }
-                            catch {
-                                Write-Host "✗ Failed to connect to Microsoft Graph: $_" -ForegroundColor Red
-                                Write-Host "  MSAL Cache Fix - Try these steps:" -ForegroundColor Yellow
-                                Write-Host "    1. Close all PowerShell windows" -ForegroundColor Yellow
-                                Write-Host "    2. Run: Update-Module Microsoft.Graph -Force -AllowClobber" -ForegroundColor Yellow
-                                Write-Host "    3. Run: Uninstall-Module Microsoft.Graph.Authentication -AllVersions" -ForegroundColor Yellow
-                                Write-Host "    4. Run: Install-Module Microsoft.Graph.Authentication -Force" -ForegroundColor Yellow
-                                Write-Host "    5. Try connecting again" -ForegroundColor Yellow
-                                Write-Host "  Alternative: Try PowerShell 7+ for better compatibility" -ForegroundColor Yellow
-                            }
+                            Write-Host "✗ Device code authentication also failed: $_" -ForegroundColor Red
+                            Write-Host "  MSAL Cache Fix - Try these steps:" -ForegroundColor Yellow
+                            Write-Host "    1. Close all PowerShell windows" -ForegroundColor Yellow
+                            Write-Host "    2. Run: Update-Module Microsoft.Graph -Force -AllowClobber" -ForegroundColor Yellow
+                            Write-Host "    3. Run: Uninstall-Module Microsoft.Graph.Authentication -AllVersions" -ForegroundColor Yellow
+                            Write-Host "    4. Run: Install-Module Microsoft.Graph.Authentication -Force" -ForegroundColor Yellow
+                            Write-Host "    5. Try connecting again" -ForegroundColor Yellow
+                            Write-Host "  Alternative: Try PowerShell 7+ for better compatibility" -ForegroundColor Yellow
                         }
                     } else {
-                        Write-Host "  Trying interactive browser authentication..." -ForegroundColor Yellow
+                        Write-Host "  Trying device code authentication as fallback..." -ForegroundColor Yellow
                         try {
-                            Connect-MgGraph -Scopes $allRequiredScopes -ErrorAction Stop
+                            Connect-MgGraph -Scopes $allRequiredScopes -UseDeviceAuthentication -ErrorAction Stop
                             Write-Host "✓ Connected to Microsoft Graph successfully." -ForegroundColor Green
                         }
                         catch {
@@ -989,13 +983,52 @@ function Check-AllDependencies {
                 $connectChoice = Read-Host "Connect to Exchange Online? (y/n)"
                 if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
                     Write-Host "Connecting to Exchange Online..." -ForegroundColor Yellow
+                    Write-Host "  Note: This may open a browser window for authentication" -ForegroundColor Cyan
+                    Write-Host "  If it hangs, press Ctrl+C to cancel and try connecting manually" -ForegroundColor Cyan
+                    
                     try {
-                        Connect-ExchangeOnline -ErrorAction Stop
-                        Write-Host "✓ Connected to Exchange Online successfully." -ForegroundColor Green
+                        # Use a timeout mechanism and show progress
+                        $job = Start-Job -ScriptBlock {
+                            Import-Module ExchangeOnlineManagement -ErrorAction Stop
+                            Connect-ExchangeOnline -ErrorAction Stop
+                        }
+                        
+                        # Wait for job with timeout (30 seconds)
+                        $timeout = 30
+                        $completed = Wait-Job -Job $job -Timeout $timeout
+                        
+                        if ($completed) {
+                            $result = Receive-Job -Job $job -ErrorAction SilentlyContinue
+                            Remove-Job -Job $job
+                            
+                            # Verify connection after job completion
+                            Start-Sleep -Seconds 2
+                            $connectionInfo = Get-ConnectionInformation -ErrorAction SilentlyContinue
+                            if ($connectionInfo) {
+                                Write-Host "✓ Connected to Exchange Online successfully." -ForegroundColor Green
+                            } else {
+                                Write-Host "⚠ Connection command completed but unable to verify connection" -ForegroundColor Yellow
+                                Write-Host "  Try running: Get-ConnectionInformation" -ForegroundColor Yellow
+                            }
+                        } else {
+                            # Job timed out
+                            Stop-Job -Job $job
+                            Remove-Job -Job $job
+                            Write-Host "⚠ Connection attempt timed out after $timeout seconds" -ForegroundColor Yellow
+                            Write-Host "  Common fixes:" -ForegroundColor Yellow
+                            Write-Host "    1. Check if browser authentication window is open" -ForegroundColor Yellow
+                            Write-Host "    2. Try connecting manually: Connect-ExchangeOnline" -ForegroundColor Yellow
+                            Write-Host "    3. Check network connectivity and firewall settings" -ForegroundColor Yellow
+                            Write-Host "    4. Verify your account has Exchange Online permissions" -ForegroundColor Yellow
+                        }
                     }
                     catch {
                         Write-Host "✗ Failed to connect to Exchange Online: $_" -ForegroundColor Red
-                        Write-Host "  Try connecting manually with: Connect-ExchangeOnline" -ForegroundColor Yellow
+                        Write-Host "  Troubleshooting steps:" -ForegroundColor Yellow
+                        Write-Host "    1. Try connecting manually: Connect-ExchangeOnline" -ForegroundColor Yellow
+                        Write-Host "    2. Check if Modern Authentication is enabled" -ForegroundColor Yellow
+                        Write-Host "    3. Verify your account has Exchange admin permissions" -ForegroundColor Yellow
+                        Write-Host "    4. Update the module: Update-Module ExchangeOnlineManagement -Force" -ForegroundColor Yellow
                     }
                 }
             }
@@ -1004,12 +1037,28 @@ function Check-AllDependencies {
             Write-Host " ✗ Error checking Exchange Online connection: $_" -ForegroundColor Red
             $connectChoice = Read-Host "Connect to Exchange Online? (y/n)"
             if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
+                Write-Host "Connecting to Exchange Online..." -ForegroundColor Yellow
+                Write-Host "  Note: This may open a browser window for authentication" -ForegroundColor Cyan
+                
                 try {
-                    Write-Host "Connecting to Exchange Online..." -ForegroundColor Yellow
+                    # Use direct connection with timeout warning
+                    $timeoutWarning = {
+                        Start-Sleep -Seconds 15
+                        Write-Host "  Still connecting... This may take a moment" -ForegroundColor Yellow
+                        Start-Sleep -Seconds 15
+                        Write-Host "  If this hangs, press Ctrl+C to cancel" -ForegroundColor Yellow
+                    }
+                    
+                    $warningJob = Start-Job -ScriptBlock $timeoutWarning
                     Connect-ExchangeOnline -ErrorAction Stop
+                    Stop-Job -Job $warningJob -ErrorAction SilentlyContinue
+                    Remove-Job -Job $warningJob -ErrorAction SilentlyContinue
+                    
                     Write-Host "✓ Connected to Exchange Online successfully." -ForegroundColor Green
                 }
                 catch {
+                    Stop-Job -Job $warningJob -ErrorAction SilentlyContinue
+                    Remove-Job -Job $warningJob -ErrorAction SilentlyContinue
                     Write-Host "✗ Failed to connect to Exchange Online: $_" -ForegroundColor Red
                     Write-Host "  Try connecting manually with: Connect-ExchangeOnline" -ForegroundColor Yellow
                 }
