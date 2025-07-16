@@ -1,9 +1,66 @@
 # This script adds users to SharePoint site groups (Owners or Members) for multiple sites, based on information in a CSV file. It handles errors and logs any failed operations.
 # CSV File: Contains user assignments; each row should have SiteURL, UserEmail, and Role (e.g., Owner or Member).
 # PnP connection configuration should be set up in the main menu PnP configurations.
+# Compatible with both PnP.PowerShell (PowerShell 7+) and SharePointPnPPowerShellOnline (PowerShell 5.1)
 
-# Import the PnP PowerShell Module
-Import-Module PnP.PowerShell -ErrorAction SilentlyContinue
+# Function to detect and import the appropriate PnP module
+function Import-PnPModule {
+    $psVersion = $PSVersionTable.PSVersion
+    
+    # Check for modern PnP.PowerShell first
+    $modernPnP = Get-Module -Name PnP.PowerShell -ListAvailable -ErrorAction SilentlyContinue
+    $legacyPnP = Get-Module -Name SharePointPnPPowerShellOnline -ListAvailable -ErrorAction SilentlyContinue
+    
+    if ($modernPnP -and $psVersion.Major -ge 7) {
+        Write-Host "Using PnP.PowerShell (modern module)" -ForegroundColor Green
+        Import-Module PnP.PowerShell -ErrorAction Stop
+        return "Modern"
+    }
+    elseif ($legacyPnP) {
+        Write-Host "Using SharePointPnPPowerShellOnline (legacy module)" -ForegroundColor Yellow
+        Import-Module SharePointPnPPowerShellOnline -ErrorAction Stop
+        return "Legacy"
+    }
+    elseif ($modernPnP -and $psVersion.Major -lt 7) {
+        Write-Host "Warning: PnP.PowerShell detected but may not work properly on PowerShell $($psVersion.Major).$($psVersion.Minor)" -ForegroundColor Yellow
+        Write-Host "Attempting to use PnP.PowerShell anyway..." -ForegroundColor Yellow
+        Import-Module PnP.PowerShell -ErrorAction Stop
+        return "Modern"
+    }
+    else {
+        throw "No PnP module found. Please install PnP.PowerShell (PowerShell 7+) or SharePointPnPPowerShellOnline (PowerShell 5.1)"
+    }
+}
+
+# Function to connect to SharePoint based on module type
+function Connect-SharePoint {
+    param(
+        [string]$SiteUrl,
+        [string]$ModuleType
+    )
+    
+    if ($ModuleType -eq "Modern") {
+        # Use modern PnP.PowerShell connection
+        Connect-PnPOnline -Url $SiteUrl -Interactive
+    }
+    else {
+        # Use legacy SharePointPnPPowerShellOnline connection
+        Connect-PnPOnline -Url $SiteUrl -UseWebLogin
+    }
+}
+
+# Try to import the appropriate PnP module
+try {
+    $moduleType = Import-PnPModule
+    Write-Host "Successfully loaded PnP module" -ForegroundColor Green
+}
+catch {
+    Write-Host "Error loading PnP module: $_" -ForegroundColor Red
+    Write-Host "Please install the appropriate PnP module:" -ForegroundColor Yellow
+    Write-Host "  - For PowerShell 7+: Install-Module PnP.PowerShell -Scope CurrentUser" -ForegroundColor Yellow
+    Write-Host "  - For PowerShell 5.1: Install-Module SharePointPnPPowerShellOnline -Scope CurrentUser" -ForegroundColor Yellow
+    exit 1
+}
 
 # Define the working directory and file paths
 # Use the application work folder from the main menu configuration
@@ -40,7 +97,8 @@ function New-TemplateCSV {
     
     $templateData | Export-Csv -Path $FilePath -NoTypeInformation
     Write-Host "Template CSV file created at: $FilePath" -ForegroundColor Green
-    Write-Host "Please edit the file with your actual site URLs, user emails, and roles (Owner/Member)" -ForegroundColor Yellow
+    Write-Host "Please edit the file with your actual site URLs, user emails, and roles" -ForegroundColor Yellow
+    Write-Host "Supported roles: Owner, Member, Visitor" -ForegroundColor Cyan
 }
 
 # Ask user if they want to generate a template CSV
@@ -85,34 +143,36 @@ foreach ($entry in $data) {
     $role = $entry.Role
 
     try {
-        # Connect using PnP settings from main menu configuration
-        # Note: Ensure PnP connection is configured in the main menu before running this script
-        Connect-PnPOnline -Url $siteUrl -Interactive
+        # Connect using the appropriate PnP module
+        Write-Host "Connecting to SharePoint site: $siteUrl" -ForegroundColor Cyan
+        Connect-SharePoint -SiteUrl $siteUrl -ModuleType $moduleType
 
         # Determine the group based on the role
         if ($role -eq "Owner") {
             $groupName = "Owners"  # Default SharePoint Owners Group
         } elseif ($role -eq "Member") {
             $groupName = "Members"  # Default SharePoint Members Group
+        } elseif ($role -eq "Visitor") {
+            $groupName = "Visitors"  # Default SharePoint Visitors Group
         } else {
             # Unsupported role; log and skip
-            $message = "Skipped user ${userEmail} at ${siteUrl} - unsupported role '${role}'"
+            $message = "Skipped user ${userEmail} at ${siteUrl} - unsupported role '${role}' (supported: Owner, Member, Visitor)"
             Write-Warning $message
             Add-Content -Path $errorLogFilePath -Value $message
             continue
         }
 
         # Get the SharePoint Group
-        Write-Host "Fetching group: $groupName from site $siteUrl"
+        Write-Host "Fetching group: $groupName from site $siteUrl" -ForegroundColor Gray
         $group = Get-PnPGroup | Where-Object { $_.Title -like "*$groupName" }
         if (-not $group) {
             throw "Cannot find group '${groupName}' in site: ${siteUrl}"
         }
 
         # Add the user to the SharePoint Group using Add-PnPGroupMember
-        Write-Host "Adding $userEmail to group: $($group.Title)"
+        Write-Host "Adding $userEmail to group: $($group.Title)" -ForegroundColor Gray
         Add-PnPGroupMember -LoginName $userEmail -Group $group.Title
-        Write-Host "Successfully added ${userEmail} to '${groupName}' group in ${siteUrl}"
+        Write-Host "✓ Successfully added ${userEmail} to '${groupName}' group in ${siteUrl}" -ForegroundColor Green
 
     } catch {
         # Log the error
@@ -124,6 +184,7 @@ foreach ($entry in $data) {
 
 Write-Host ""
 Write-Host "Script execution completed!" -ForegroundColor Green
+Write-Host "Module used: $(if ($moduleType -eq 'Modern') { 'PnP.PowerShell' } else { 'SharePointPnPPowerShellOnline' })" -ForegroundColor Cyan
 if (Test-Path $errorLogFilePath) {
     Write-Host "Check error log at: $errorLogFilePath" -ForegroundColor Yellow
 } else {

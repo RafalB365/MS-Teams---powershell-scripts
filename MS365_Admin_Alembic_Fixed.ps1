@@ -30,6 +30,50 @@ function Write-Log {
     "$timestamp - $Message" | Out-File -FilePath $logPath -Append -Encoding utf8
 }
 
+# Function to check PnP connection (works with both modern and legacy modules)
+function Test-PnPConnection {
+    try {
+        # Check for modern PnP.PowerShell
+        $modernPnP = Get-Module -Name PnP.PowerShell -ErrorAction SilentlyContinue
+        if ($modernPnP) {
+            $connection = Get-PnPConnection -ErrorAction SilentlyContinue
+            if ($connection) {
+                return @{
+                    IsConnected = $true
+                    Module = "PnP.PowerShell"
+                    Url = $connection.Url
+                }
+            }
+        }
+        
+        # Check for legacy SharePointPnPPowerShellOnline
+        $legacyPnP = Get-Module -Name SharePointPnPPowerShellOnline -ErrorAction SilentlyContinue
+        if ($legacyPnP) {
+            $connection = Get-PnPConnection -ErrorAction SilentlyContinue
+            if ($connection) {
+                return @{
+                    IsConnected = $true
+                    Module = "SharePointPnPPowerShellOnline"
+                    Url = $connection.Url
+                }
+            }
+        }
+        
+        return @{
+            IsConnected = $false
+            Module = $null
+            Url = $null
+        }
+    }
+    catch {
+        return @{
+            IsConnected = $false
+            Module = $null
+            Url = $null
+        }
+    }
+}
+
 Clear-Host
 
 # ASCII Art Header
@@ -58,6 +102,8 @@ Write-Host ""
 Write-Host "   ╔═══════════════════════════════════════════════════════════════╗" -ForegroundColor DarkGreen
 Write-Host "   ║                    v$toolkitVersion - PowerShell Toolkit      ║" -ForegroundColor DarkGreen
 Write-Host "   ║              Your MS365 Administration Swiss Army Knife!      ║" -ForegroundColor DarkGreen
+Write-Host "   ║                                                               ║" -ForegroundColor DarkGreen
+Write-Host "   ║    Note: Some modules require PowerShell 7 for full support   ║" -ForegroundColor DarkGreen
 Write-Host "   ╚═══════════════════════════════════════════════════════════════╝" -ForegroundColor DarkGreen
 Write-Host ""
 
@@ -93,6 +139,7 @@ $scriptInfo = @{
         ScriptName = "add_sharepoint_users_from_csv.ps1"
         LocalPath = "Scripts\SharePoint\add_sharepoint_users_from_csv.ps1"
         RequiredModules = @("PnP.PowerShell")
+        RequiredModulesLegacy = @("SharePointPnPPowerShellOnline")
         RequiredScopes = @("Sites.FullControl.All")
         Category = "SharePoint"
     }
@@ -348,9 +395,22 @@ function Show-ScriptDescription {
     
     if ($scriptInfo.ContainsKey($ScriptKey)) {
         $script = $scriptInfo[$ScriptKey]
+        $psVersion = $PSVersionTable.PSVersion
+        
         Write-Host "`n=== $($script.Name) ===" -ForegroundColor Green
         Write-Host "Description: $($script.Description)" -ForegroundColor Gray
-        Write-Host "Required Modules: $($script.RequiredModules -join ', ')" -ForegroundColor Gray
+        
+        # Show appropriate modules based on PowerShell version
+        if ($psVersion.Major -lt 7 -and $script.ContainsKey("RequiredModulesLegacy")) {
+            Write-Host "Required Modules (PS 5.1): $($script.RequiredModulesLegacy -join ', ')" -ForegroundColor Gray
+            Write-Host "Required Modules (PS 7+): $($script.RequiredModules -join ', ')" -ForegroundColor DarkGray
+        } else {
+            Write-Host "Required Modules: $($script.RequiredModules -join ', ')" -ForegroundColor Gray
+            if ($script.ContainsKey("RequiredModulesLegacy")) {
+                Write-Host "Legacy Modules (PS 5.1): $($script.RequiredModulesLegacy -join ', ')" -ForegroundColor DarkGray
+            }
+        }
+        
         Write-Host "Required Scopes: $($script.RequiredScopes -join ', ')" -ForegroundColor Gray
         Write-Host ""
     }
@@ -435,8 +495,42 @@ function Configure-Settings {
 function Check-AllDependencies {
     Write-Host "`n=== Checking Dependencies ===" -ForegroundColor Green
     
+    # Check PowerShell version first
+    Write-Host "`n--- PowerShell Version Check ---" -ForegroundColor Cyan
+    $psVersion = $PSVersionTable.PSVersion
+    Write-Host "Current PowerShell Version: $($psVersion.Major).$($psVersion.Minor)" -ForegroundColor Gray
+    
+    # Check compatibility with PnP.PowerShell
+    if ($psVersion.Major -lt 7) {
+        Write-Host "⚠ Warning: You're using PowerShell $($psVersion.Major).$($psVersion.Minor)" -ForegroundColor Yellow
+        Write-Host "  • PnP.PowerShell requires PowerShell 7.0 or higher" -ForegroundColor Yellow
+        Write-Host "  • SharePointPnPPowerShellOnline works with PowerShell 5.1" -ForegroundColor Yellow
+        Write-Host "  • This script will suggest appropriate modules for your version" -ForegroundColor Yellow
+        Write-Host "  • Consider upgrading to PowerShell 7: https://github.com/PowerShell/PowerShell/releases" -ForegroundColor Yellow
+        
+        $continueChoice = Read-Host "Continue with dependency check? (y/n)"
+        if ($continueChoice -ne 'y' -and $continueChoice -ne 'Y') {
+            return
+        }
+    } else {
+        Write-Host "✓ PowerShell $($psVersion.Major).$($psVersion.Minor) - Compatible with all modern modules" -ForegroundColor Green
+        Write-Host "  • PnP.PowerShell: Full support" -ForegroundColor Green
+        Write-Host "  • All Microsoft Graph modules: Full support" -ForegroundColor Green
+        Write-Host "  • Exchange Online Management: Full support" -ForegroundColor Green
+    }
+    
     # Get all unique modules from scripts
     $allModules = $scriptInfo.Values | ForEach-Object { $_.RequiredModules } | Select-Object -Unique | Sort-Object
+    
+    # Add legacy modules for PowerShell 5.1
+    if ($psVersion.Major -lt 7) {
+        $legacyModules = $scriptInfo.Values | ForEach-Object { 
+            if ($_.ContainsKey("RequiredModulesLegacy")) { $_.RequiredModulesLegacy } 
+        } | Select-Object -Unique | Sort-Object
+        if ($legacyModules) {
+            $allModules = $allModules + $legacyModules | Select-Object -Unique | Sort-Object
+        }
+    }
     
     Write-Host "`n--- Checking PowerShell Modules ---" -ForegroundColor Cyan
     
@@ -449,11 +543,66 @@ function Check-AllDependencies {
                 Write-Host " ✓ Installed (v$($installedModule[0].Version))" -ForegroundColor Green
             } else {
                 Write-Host " ✗ Not installed" -ForegroundColor Red
+                
+                # Special handling for PnP modules
+                if ($module -eq "PnP.PowerShell") {
+                    if ($psVersion.Major -lt 7) {
+                        Write-Host "  ⚠ Warning: PnP.PowerShell requires PowerShell 7.0 or higher" -ForegroundColor Yellow
+                        Write-Host "  ℹ Alternative: Install SharePointPnPPowerShellOnline for PowerShell 5.1" -ForegroundColor Cyan
+                        
+                        $installChoice = Read-Host "Install SharePointPnPPowerShellOnline (legacy) instead? (y/n)"
+                        if ($installChoice -eq 'y' -or $installChoice -eq 'Y') {
+                            Write-Host "Installing SharePointPnPPowerShellOnline..." -ForegroundColor Yellow
+                            try {
+                                Install-Module -Name SharePointPnPPowerShellOnline -Scope CurrentUser -Force -AllowClobber
+                                
+                                # Verify installation
+                                Start-Sleep -Seconds 2
+                                $verifyModule = Get-Module -Name SharePointPnPPowerShellOnline -ListAvailable -ErrorAction SilentlyContinue
+                                if ($verifyModule) {
+                                    Write-Host "SharePointPnPPowerShellOnline installed successfully (v$($verifyModule[0].Version))." -ForegroundColor Green
+                                } else {
+                                    Write-Host "⚠ SharePointPnPPowerShellOnline installation completed but module not found." -ForegroundColor Yellow
+                                }
+                            }
+                            catch {
+                                Write-Host "✗ Failed to install SharePointPnPPowerShellOnline: $_" -ForegroundColor Red
+                            }
+                        }
+                        continue
+                    }
+                }
+                
+                # Skip SharePointPnPPowerShellOnline if PowerShell 7+ and PnP.PowerShell is available
+                if ($module -eq "SharePointPnPPowerShellOnline" -and $psVersion.Major -ge 7) {
+                    $modernPnP = Get-Module -Name PnP.PowerShell -ListAvailable -ErrorAction SilentlyContinue
+                    if ($modernPnP) {
+                        Write-Host " ℹ Skipping legacy module - PnP.PowerShell is available" -ForegroundColor Cyan
+                        continue
+                    }
+                }
+                
                 $installChoice = Read-Host "Install $module? (y/n)"
                 if ($installChoice -eq 'y' -or $installChoice -eq 'Y') {
                     Write-Host "Installing $module..." -ForegroundColor Yellow
-                    Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber
-                    Write-Host "$module installed successfully." -ForegroundColor Green
+                    try {
+                        Install-Module -Name $module -Scope CurrentUser -Force -AllowClobber
+                        
+                        # Verify installation
+                        Start-Sleep -Seconds 2
+                        $verifyModule = Get-Module -Name $module -ListAvailable -ErrorAction SilentlyContinue
+                        if ($verifyModule) {
+                            Write-Host "$module installed successfully (v$($verifyModule[0].Version))." -ForegroundColor Green
+                        } else {
+                            Write-Host "⚠ $module installation completed but module not found. This may indicate a compatibility issue." -ForegroundColor Yellow
+                        }
+                    }
+                    catch {
+                        Write-Host "✗ Failed to install $module : $_" -ForegroundColor Red
+                        if ($module -eq "PnP.PowerShell" -and $psVersion.Major -lt 7) {
+                            Write-Host "  Consider using SharePointPnPPowerShellOnline instead for PowerShell 5.1" -ForegroundColor Yellow
+                        }
+                    }
                 }
             }
         }
@@ -512,68 +661,171 @@ function Check-AllDependencies {
         Write-Host " ✗ Error checking Microsoft Graph connection: $_" -ForegroundColor Red
     }
     
+    # Check PnP PowerShell connection
+    Write-Host "Checking PnP PowerShell connection..." -NoNewline
+    try {
+        $pnpStatus = Test-PnPConnection
+        if ($pnpStatus.IsConnected) {
+            Write-Host " ✓ Connected via $($pnpStatus.Module) to $($pnpStatus.Url)" -ForegroundColor Green
+        } else {
+            Write-Host " ✗ Not connected" -ForegroundColor Red
+            
+            # Check which PnP module is available
+            $modernPnP = Get-Module -Name PnP.PowerShell -ListAvailable -ErrorAction SilentlyContinue
+            $legacyPnP = Get-Module -Name SharePointPnPPowerShellOnline -ListAvailable -ErrorAction SilentlyContinue
+            
+            if ($modernPnP -or $legacyPnP) {
+                $connectChoice = Read-Host "Connect to SharePoint Online? (y/n)"
+                if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
+                    $siteUrl = Read-Host "Enter SharePoint site URL (e.g., https://contoso.sharepoint.com/sites/sitename)"
+                    if (-not [string]::IsNullOrEmpty($siteUrl)) {
+                        Write-Host "Connecting to SharePoint Online..." -ForegroundColor Yellow
+                        try {
+                            if ($modernPnP) {
+                                Connect-PnPOnline -Url $siteUrl -Interactive -ErrorAction Stop
+                            } else {
+                                Connect-PnPOnline -Url $siteUrl -UseWebLogin -ErrorAction Stop
+                            }
+                            Write-Host "✓ Connected to SharePoint Online successfully." -ForegroundColor Green
+                        }
+                        catch {
+                            Write-Host "✗ Failed to connect to SharePoint Online: $_" -ForegroundColor Red
+                        }
+                    }
+                }
+            } else {
+                Write-Host "  ⚠ No PnP modules available. Install PnP.PowerShell (PS 7+) or SharePointPnPPowerShellOnline (PS 5.1)" -ForegroundColor Yellow
+            }
+        }
+    }
+    catch {
+        Write-Host " ✗ Error checking PnP PowerShell connection: $_" -ForegroundColor Red
+    }
+    
     # Check Microsoft Teams connection
     Write-Host "Checking Microsoft Teams connection..." -NoNewline
     try {
-        $teamsContext = Get-CsTenant -ErrorAction SilentlyContinue
-        if ($teamsContext) {
-            Write-Host " ✓ Connected to tenant: $($teamsContext.DisplayName)" -ForegroundColor Green
+        # First check if the MicrosoftTeams module is available and import it
+        $teamsModule = Get-Module -Name MicrosoftTeams -ListAvailable -ErrorAction SilentlyContinue
+        if (-not $teamsModule) {
+            Write-Host " ✗ MicrosoftTeams module not available" -ForegroundColor Red
+            Write-Host "  Install with: Install-Module MicrosoftTeams -Scope CurrentUser" -ForegroundColor Yellow
         } else {
-            Write-Host " ✗ Not connected" -ForegroundColor Red
-            $connectChoice = Read-Host "Connect to Microsoft Teams? (y/n)"
-            if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
-                Write-Host "Connecting to Microsoft Teams..." -ForegroundColor Yellow
+            # Import the module if not already imported
+            $importedModule = Get-Module -Name MicrosoftTeams -ErrorAction SilentlyContinue
+            if (-not $importedModule) {
                 try {
-                    Connect-MicrosoftTeams -ErrorAction Stop
-                    Write-Host "✓ Connected to Microsoft Teams successfully." -ForegroundColor Green
+                    Import-Module MicrosoftTeams -ErrorAction Stop
                 }
                 catch {
-                    Write-Host "✗ Failed to connect to Microsoft Teams: $_" -ForegroundColor Red
+                    Write-Host " ✗ Failed to import MicrosoftTeams module: $_" -ForegroundColor Red
+                    return
+                }
+            }
+            
+            # Now check connection
+            try {
+                $teamsContext = Get-CsTenant -ErrorAction SilentlyContinue
+                if ($teamsContext) {
+                    Write-Host " ✓ Connected to tenant: $($teamsContext.DisplayName)" -ForegroundColor Green
+                } else {
+                    Write-Host " ✗ Not connected" -ForegroundColor Red
+                    $connectChoice = Read-Host "Connect to Microsoft Teams? (y/n)"
+                    if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
+                        Write-Host "Connecting to Microsoft Teams..." -ForegroundColor Yellow
+                        try {
+                            Connect-MicrosoftTeams -ErrorAction Stop
+                            Write-Host "✓ Connected to Microsoft Teams successfully." -ForegroundColor Green
+                        }
+                        catch {
+                            Write-Host "✗ Failed to connect to Microsoft Teams: $_" -ForegroundColor Red
+                        }
+                    }
+                }
+            }
+            catch {
+                Write-Host " ✗ Error checking Microsoft Teams connection: $_" -ForegroundColor Red
+                $connectChoice = Read-Host "Connect to Microsoft Teams? (y/n)"
+                if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
+                    try {
+                        Write-Host "Connecting to Microsoft Teams..." -ForegroundColor Yellow
+                        Connect-MicrosoftTeams -ErrorAction Stop
+                        Write-Host "✓ Connected to Microsoft Teams successfully." -ForegroundColor Green
+                    }
+                    catch {
+                        Write-Host "✗ Failed to connect to Microsoft Teams: $_" -ForegroundColor Red
+                    }
                 }
             }
         }
     }
     catch {
-        Write-Host " ✗ Error checking Microsoft Teams connection: $_" -ForegroundColor Red
-        $connectChoice = Read-Host "Connect to Microsoft Teams? (y/n)"
-        if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
-            try {
-                Write-Host "Connecting to Microsoft Teams..." -ForegroundColor Yellow
-                Connect-MicrosoftTeams -ErrorAction Stop
-                Write-Host "✓ Connected to Microsoft Teams successfully." -ForegroundColor Green
-            }
-            catch {
-                Write-Host "✗ Failed to connect to Microsoft Teams: $_" -ForegroundColor Red
-            }
-        }
+        Write-Host " ✗ Unexpected error with Microsoft Teams module: $_" -ForegroundColor Red
     }
     
     # Check Exchange Online connection
     Write-Host "Checking Exchange Online connection..." -NoNewline
     try {
-        # First check if the ExchangeOnlineManagement module is imported
-        $exchangeModule = Get-Module -Name ExchangeOnlineManagement -ErrorAction SilentlyContinue
+        # First check if the ExchangeOnlineManagement module is available
+        $exchangeModule = Get-Module -Name ExchangeOnlineManagement -ListAvailable -ErrorAction SilentlyContinue
         if (-not $exchangeModule) {
+            Write-Host " ✗ ExchangeOnlineManagement module not available" -ForegroundColor Red
+            Write-Host "  Install with: Install-Module ExchangeOnlineManagement -Scope CurrentUser" -ForegroundColor Yellow
+            $installChoice = Read-Host "Install ExchangeOnlineManagement module? (y/n)"
+            if ($installChoice -eq 'y' -or $installChoice -eq 'Y') {
+                Write-Host "Installing ExchangeOnlineManagement..." -ForegroundColor Yellow
+                try {
+                    Install-Module ExchangeOnlineManagement -Scope CurrentUser -Force -AllowClobber
+                    Write-Host "✓ ExchangeOnlineManagement module installed successfully." -ForegroundColor Green
+                }
+                catch {
+                    Write-Host "✗ Failed to install ExchangeOnlineManagement: $_" -ForegroundColor Red
+                    return
+                }
+            } else {
+                return
+            }
+        }
+        
+        # Import the module if not already imported
+        $importedModule = Get-Module -Name ExchangeOnlineManagement -ErrorAction SilentlyContinue
+        if (-not $importedModule) {
             try {
                 Import-Module ExchangeOnlineManagement -ErrorAction Stop
             }
             catch {
-                Write-Host " ✗ ExchangeOnlineManagement module not available" -ForegroundColor Red
-                Write-Host "  Install with: Install-Module ExchangeOnlineManagement -Scope CurrentUser" -ForegroundColor Yellow
+                Write-Host " ✗ Failed to import ExchangeOnlineManagement module: $_" -ForegroundColor Red
                 return
             }
         }
         
         # Check if we're connected by trying to get connection info
-        $connectionInfo = Get-ConnectionInformation -ErrorAction SilentlyContinue
-        if ($connectionInfo) {
-            Write-Host " ✓ Connected to Exchange Online ($($connectionInfo.Organization))" -ForegroundColor Green
-        } else {
-            Write-Host " ✗ Not connected" -ForegroundColor Red
+        try {
+            $connectionInfo = Get-ConnectionInformation -ErrorAction SilentlyContinue
+            if ($connectionInfo) {
+                Write-Host " ✓ Connected to Exchange Online ($($connectionInfo.Organization))" -ForegroundColor Green
+            } else {
+                Write-Host " ✗ Not connected" -ForegroundColor Red
+                $connectChoice = Read-Host "Connect to Exchange Online? (y/n)"
+                if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
+                    Write-Host "Connecting to Exchange Online..." -ForegroundColor Yellow
+                    try {
+                        Connect-ExchangeOnline -ErrorAction Stop
+                        Write-Host "✓ Connected to Exchange Online successfully." -ForegroundColor Green
+                    }
+                    catch {
+                        Write-Host "✗ Failed to connect to Exchange Online: $_" -ForegroundColor Red
+                        Write-Host "  Try connecting manually with: Connect-ExchangeOnline" -ForegroundColor Yellow
+                    }
+                }
+            }
+        }
+        catch {
+            Write-Host " ✗ Error checking Exchange Online connection: $_" -ForegroundColor Red
             $connectChoice = Read-Host "Connect to Exchange Online? (y/n)"
             if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
-                Write-Host "Connecting to Exchange Online..." -ForegroundColor Yellow
                 try {
+                    Write-Host "Connecting to Exchange Online..." -ForegroundColor Yellow
                     Connect-ExchangeOnline -ErrorAction Stop
                     Write-Host "✓ Connected to Exchange Online successfully." -ForegroundColor Green
                 }
@@ -585,19 +837,7 @@ function Check-AllDependencies {
         }
     }
     catch {
-        Write-Host " ✗ Error checking Exchange Online connection: $_" -ForegroundColor Red
-        $connectChoice = Read-Host "Connect to Exchange Online? (y/n)"
-        if ($connectChoice -eq 'y' -or $connectChoice -eq 'Y') {
-            try {
-                Write-Host "Connecting to Exchange Online..." -ForegroundColor Yellow
-                Connect-ExchangeOnline -ErrorAction Stop
-                Write-Host "✓ Connected to Exchange Online successfully." -ForegroundColor Green
-            }
-            catch {
-                Write-Host "✗ Failed to connect to Exchange Online: $_" -ForegroundColor Red
-                Write-Host "  Try connecting manually with: Connect-ExchangeOnline" -ForegroundColor Yellow
-            }
-        }
+        Write-Host " ✗ Unexpected error with Exchange Online module: $_" -ForegroundColor Red
     }
     
     Write-Host "`n--- Connection Summary ---" -ForegroundColor Cyan
@@ -615,22 +855,43 @@ function Check-AllDependencies {
     }
     
     try {
-        $teamsContext = Get-CsTenant -ErrorAction SilentlyContinue
-        if ($teamsContext) {
-            Write-Host "✓ Microsoft Teams: Connected to $($teamsContext.DisplayName)" -ForegroundColor Green
+        $pnpStatus = Test-PnPConnection
+        if ($pnpStatus.IsConnected) {
+            Write-Host "✓ PnP PowerShell: Connected via $($pnpStatus.Module) to $($pnpStatus.Url)" -ForegroundColor Green
         } else {
-            Write-Host "✗ Microsoft Teams: Not connected" -ForegroundColor Red
+            Write-Host "✗ PnP PowerShell: Not connected" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "✗ PnP PowerShell: Connection error" -ForegroundColor Red
+    }
+    
+    try {
+        $teamsModule = Get-Module -Name MicrosoftTeams -ErrorAction SilentlyContinue
+        if ($teamsModule) {
+            $teamsContext = Get-CsTenant -ErrorAction SilentlyContinue
+            if ($teamsContext) {
+                Write-Host "✓ Microsoft Teams: Connected to $($teamsContext.DisplayName)" -ForegroundColor Green
+            } else {
+                Write-Host "✗ Microsoft Teams: Not connected" -ForegroundColor Red
+            }
+        } else {
+            Write-Host "✗ Microsoft Teams: Module not imported" -ForegroundColor Red
         }
     } catch {
         Write-Host "✗ Microsoft Teams: Connection error" -ForegroundColor Red
     }
     
     try {
-        $connectionInfo = Get-ConnectionInformation -ErrorAction SilentlyContinue
-        if ($connectionInfo) {
-            Write-Host "✓ Exchange Online: Connected to $($connectionInfo.Organization)" -ForegroundColor Green
+        $exchangeModule = Get-Module -Name ExchangeOnlineManagement -ErrorAction SilentlyContinue
+        if ($exchangeModule) {
+            $connectionInfo = Get-ConnectionInformation -ErrorAction SilentlyContinue
+            if ($connectionInfo) {
+                Write-Host "✓ Exchange Online: Connected to $($connectionInfo.Organization)" -ForegroundColor Green
+            } else {
+                Write-Host "✗ Exchange Online: Not connected" -ForegroundColor Red
+            }
         } else {
-            Write-Host "✗ Exchange Online: Not connected" -ForegroundColor Red
+            Write-Host "✗ Exchange Online: Module not imported" -ForegroundColor Red
         }
     } catch {
         Write-Host "✗ Exchange Online: Connection error" -ForegroundColor Red
