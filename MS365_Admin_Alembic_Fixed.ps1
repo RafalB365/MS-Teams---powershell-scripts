@@ -989,7 +989,46 @@ function Check-AllDependencies {
                     try {
                         # Use direct connection to allow browser authentication
                         Write-Host "  Attempting to connect with interactive authentication..." -ForegroundColor Gray
-                        Connect-ExchangeOnline -ErrorAction Stop
+                        Write-Host "  If browser doesn't open, try Ctrl+C and use device code option" -ForegroundColor Gray
+                        
+                        # Check if we're in VS Code integrated terminal
+                        $isVSCodeTerminal = $env:TERM_PROGRAM -eq "vscode" -or $env:VSCODE_PID -ne $null
+                        if ($isVSCodeTerminal) {
+                            Write-Host "  VS Code terminal detected - forcing interactive mode" -ForegroundColor Gray
+                        }
+                        
+                        # Force interactive authentication by explicitly setting the authentication type
+                        $env:POWERSHELL_TELEMETRY_OPTOUT = 1  # Disable telemetry that might interfere
+                        
+                        # Try with timeout to prevent hanging
+                        $timeout = 45  # 45 seconds timeout
+                        $connectionJob = Start-Job -ScriptBlock {
+                            param($showBanner)
+                            Import-Module ExchangeOnlineManagement -ErrorAction Stop
+                            if ($showBanner) {
+                                Connect-ExchangeOnline -ErrorAction Stop
+                            } else {
+                                Connect-ExchangeOnline -ShowBanner:$false -ErrorAction Stop
+                            }
+                        } -ArgumentList $false
+                        
+                        Write-Host "  Waiting for authentication (timeout: $timeout seconds)..." -ForegroundColor Gray
+                        $completed = Wait-Job -Job $connectionJob -Timeout $timeout
+                        
+                        if ($completed) {
+                            $result = Receive-Job -Job $connectionJob -ErrorAction SilentlyContinue
+                            $jobError = Receive-Job -Job $connectionJob -ErrorAction SilentlyContinue -ErrorVariable jobErrors
+                            Remove-Job -Job $connectionJob -Force
+                            
+                            if ($jobErrors) {
+                                throw $jobErrors[0]
+                            }
+                        } else {
+                            # Job timed out
+                            Stop-Job -Job $connectionJob -ErrorAction SilentlyContinue
+                            Remove-Job -Job $connectionJob -Force -ErrorAction SilentlyContinue
+                            throw "Connection timed out after $timeout seconds. Browser authentication may not be working in this environment."
+                        }
                         
                         # Verify connection after connection
                         Start-Sleep -Seconds 2
@@ -1058,7 +1097,46 @@ function Check-AllDependencies {
                 try {
                     # Use direct connection to allow browser authentication
                     Write-Host "  Attempting to connect with interactive authentication..." -ForegroundColor Gray
-                    Connect-ExchangeOnline -ErrorAction Stop
+                    Write-Host "  If browser doesn't open, try Ctrl+C and use device code option" -ForegroundColor Gray
+                    
+                    # Check if we're in VS Code integrated terminal
+                    $isVSCodeTerminal = $env:TERM_PROGRAM -eq "vscode" -or $env:VSCODE_PID -ne $null
+                    if ($isVSCodeTerminal) {
+                        Write-Host "  VS Code terminal detected - forcing interactive mode" -ForegroundColor Gray
+                    }
+                    
+                    # Force interactive authentication by explicitly setting the authentication type
+                    $env:POWERSHELL_TELEMETRY_OPTOUT = 1  # Disable telemetry that might interfere
+                    
+                    # Try with timeout to prevent hanging
+                    $timeout = 45  # 45 seconds timeout
+                    $connectionJob = Start-Job -ScriptBlock {
+                        param($showBanner)
+                        Import-Module ExchangeOnlineManagement -ErrorAction Stop
+                        if ($showBanner) {
+                            Connect-ExchangeOnline -ErrorAction Stop
+                        } else {
+                            Connect-ExchangeOnline -ShowBanner:$false -ErrorAction Stop
+                        }
+                    } -ArgumentList $false
+                    
+                    Write-Host "  Waiting for authentication (timeout: $timeout seconds)..." -ForegroundColor Gray
+                    $completed = Wait-Job -Job $connectionJob -Timeout $timeout
+                    
+                    if ($completed) {
+                        $result = Receive-Job -Job $connectionJob -ErrorAction SilentlyContinue
+                        $jobError = Receive-Job -Job $connectionJob -ErrorAction SilentlyContinue -ErrorVariable jobErrors
+                        Remove-Job -Job $connectionJob -Force
+                        
+                        if ($jobErrors) {
+                            throw $jobErrors[0]
+                        }
+                    } else {
+                        # Job timed out
+                        Stop-Job -Job $connectionJob -ErrorAction SilentlyContinue
+                        Remove-Job -Job $connectionJob -Force -ErrorAction SilentlyContinue
+                        throw "Connection timed out after $timeout seconds. Browser authentication may not be working in this environment."
+                    }
                     
                     # Verify connection
                     Start-Sleep -Seconds 2
